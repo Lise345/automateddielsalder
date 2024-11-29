@@ -1,9 +1,14 @@
 import os
-import math
 import sys
+import subprocess
+import shutil
 import re
+import numpy as np
+import glob
+import pandas as pd
+import openpyxl
 
-with open('../parameters.txt', 'r') as parameters:
+with open('./parameters.txt', 'r') as parameters:
     file_content = parameters.read()
 
     # Extract the size_molecule value
@@ -321,13 +326,13 @@ def launcherTS(xyzlist):
             stderr=subprocess.PIPE,
             universal_newlines=True
             )
-            if result.returncode == 0:
-                job_id_match = re.search(r'(\d+)', result.stdout)
-                if job_id_match:
-                    job_id = job_id_match.group(1)
-                    inp_file_job_ids.append(job_id)
-                    print(f"Job submitted: {job_id}")
-            else:
+        if result.returncode == 0:
+            job_id_match = re.search(r'(\d+)', result.stdout)
+            if job_id_match:
+                job_id = job_id_match.group(1)
+                inp_file_job_ids.append(job_id)
+                print(f"Job submitted: {job_id}")
+        else:
                 print(f"Failed to submit job: {result.stderr}") 
 
 
@@ -336,7 +341,7 @@ def launcherTS(xyzlist):
 def launch_dependent_job():
     if inp_file_job_ids:
         dependency_str = ":".join(inp_file_job_ids)
-        extractor_script = os.path.join(rootdir, 3_Results.sub')
+        extractor_script = os.path.join(rootdir, '4_FASTCAR_results.sub')
         
         if not os.path.exists(extractor_script):
             raise FileNotFoundError(f"Extractor script not found: {extractor_script}")
@@ -360,24 +365,7 @@ def launch_dependent_job():
         print("No jobs were submitted, skipping dependency job submission.")
 
 
-#-----error logging-----
-    
-logfilelist=[]
-errorfiles=[]
-for file in os.listdir():
-    if "IRC" in file and "log" in file and not "logfile" in file:
-        with open(file, 'r') as f:
-            lines = f.readlines()
-            if "Normal termination" in lines[-1]:
-                logfilelist.append(file)
-            else:
-                errorfiles.append(file)
 
-if len(errorfiles)!=0:
-    answer=input("The opt+freq of the CREST conformers have led to some errors, do you wish to continue (yes or no)? ")
-    if answer.lower()=='no':
-        print("Exiting the program...")
-        sys.exit()
 
 launcherstatp(logfilelist)
 launcherTS(listofTS)
