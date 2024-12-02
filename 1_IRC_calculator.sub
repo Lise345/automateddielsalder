@@ -6,7 +6,7 @@
 #SBATCH --time=10:00:00
 
 #Defining Gaussian Parameters
-cd $VSC_SCRATCH/lise/13_Ondemand/Fulvenes/Fullstructure/Test
+cd $VSC_SCRATCH/lise/CHANGETOYOURPATH
 
 #Loading modules
 module load sPyRMSD/0.8.0-foss-2023a
