@@ -1,0 +1,48 @@
+--------------------------------------------------
+-----------------CREST parameters-----------------
+--------------------------------------------------
+
+CREST version default
+CREST solvent none
+NCI none
+
+--------------------------------------------------
+------------------RMSD parameters-----------------
+--------------------------------------------------
+
+RMSD threshold  0.5
+Energy threshold 0.05
+Energy window 10
+B_threshold 2
+
+--------------------------------------------------
+------------------DFT parameters------------------
+--------------------------------------------------
+
+Functional  m062x
+Dispersion  empiricaldispersion=gd3
+Basis cbs
+DFT solvent  none
+Additional calculation  none
+Excluding nodes 01-06
+Energy of separate reagents -936.284718313083
+Charge 0
+Multiplicity 1
+
+--------------------------------------------------
+---------------Geometry information---------------
+--------------------------------------------------
+
+molecule1_atoms = 1 2 10 11 12 13 14 15 17 18
+molecule2_atoms = 3 4 5 6 7 8 9 16 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36
+atom1 = 1
+atom2 = 9
+size_molecule = 36
+CC1_in = "1 9"
+
+--------------------------------------------------
+---------------------Used path--------------------
+--------------------------------------------------
+
+rootdir /rhea/scratch/brussel/105/vsc10536/lise/CHANGETOYOURPATH
+bin /vscmnt/brussel_pixiu_home/_user_brussel/105/vsc10536/bin/
