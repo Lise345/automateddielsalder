@@ -365,7 +365,17 @@ def launch_dependent_job():
         print("No jobs were submitted, skipping dependency job submission.")
 
 
-
+logfilelist=[]
+errorfiles=[]
+for file in os.listdir():
+    if "IRC" in file and "log" in file and not "logfile" in file:
+        with open(file, 'r') as f:
+            lines = f.readlines()
+            if "Normal termination" in lines[-1]:
+                logfilelist.append(file)
+            else:
+                logfilelist.append(file)
+                errorfiles.append(file)
 
 launcherstatp(logfilelist)
 launcherTS(listofTS)
