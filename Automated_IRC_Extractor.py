@@ -7,6 +7,7 @@ import numpy as np
 import glob
 import pandas as pd
 import openpyxl
+import math
 
 with open('./parameters.txt', 'r') as parameters:
     file_content = parameters.read()
@@ -54,7 +55,7 @@ def SP_inputgenerator(xyzfile,filename):
         lines = file.readlines()
     with open(filename, 'x') as ip:
         ip.writelines("%nprocshared=4\n")
-        ip.writelines("%mem=4GB\n")
+        ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
         ip.writelines("# opt=(calcfc,ts,noeigentest) freq cc-pvdz empiricaldispersion=gd3 m062x\n")
         ip.writelines("\n")
@@ -70,7 +71,7 @@ def SP_inputgenerator(xyzfile,filename):
         #Writing Link1 part for cc-pVTZ
         ip.writelines("--Link1--\n")
         ip.writelines("%nprocshared=4\n")
-        ip.writelines("%mem=4GB\n")
+        ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
         ip.writelines("# m062x cc-pvtz empiricaldispersion=gd3 Geom=Checkpoint \n")
         ip.writelines("\n")
@@ -84,7 +85,7 @@ def SP_inputgenerator(xyzfile,filename):
 	    #Writing Link1 part for cc-pVQZ
         ip.writelines("--Link1--\n")
         ip.writelines("%nprocshared=4\n")
-        ip.writelines("%mem=4GB\n")
+        ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
         ip.writelines("# m062x cc-pvqz empiricaldispersion=gd3 Geom=Checkpoint \n")
         ip.writelines("\n")
@@ -98,41 +99,7 @@ def SP_inputgenerator(xyzfile,filename):
 
 #-------------Prepare Complex and Product geometries---------------
 
-def geometryextractor(logfile):
-    with open(logfile, 'r') as file:
-        lines = file.readlines()
-    #convergence_indices = []
-    #for i, line in enumerate(lines):
-    #    if "Delta-x Convergence Met" in line:
-    #        convergence_indices.append(i)
-    convergence_indices = []
-    for i, line in enumerate(lines):
-        if "Input orientation" in line:
-            convergence_indices.append(i)
 
-    conv_geom=convergence_indices[-1]+5
-    
-    
-    #print("convergence found")
-    
-    #index=conv_geom
-    #found=False
-    #while found==False:
-    #    if "Number     Number" in lines[index]:
-    #        found=True
-    #        index=index+2
-    #    else:
-    #        index=index-1
-    #        continue
-    #print("geometry found ...")
-    
-    geometry= []
-    start=conv_geom
-    index=conv_geom
-    while (index-start) < size_molecule:
-        geometry.append(lines[index])
-        index=index+1
-    return geometry
 
 atomic_symbols = {
     1: "H", 2: "He", 3: "Li", 4: "Be", 5: "B", 6: "C", 7: "N", 8: "O", 9: "F", 10: "Ne",
@@ -148,6 +115,30 @@ atomic_symbols = {
     101: "Md", 102: "No", 103: "Lr", 104: "Rf", 105: "Db", 106: "Sg", 107: "Bh", 108: "Hs", 109: "Mt",
     110: "Ds", 111: "Rg", 112: "Cn", 113: "Nh", 114: "Fl", 115: "Mc", 116: "Lv", 117: "Ts", 118: "Og"
 }
+
+def geometryextractor(logfile):
+    with open(logfile, 'r') as file:
+        lines = file.readlines()
+
+    convergence_indices = []
+    for i, line in enumerate(lines):
+        if "Input orientation" in line:
+            convergence_indices.append(i)
+
+    conv_geom=convergence_indices[-1]+5
+    
+    size_molecule=0
+    
+    geometry= []
+    start=conv_geom
+    index=conv_geom
+
+    for index in range(conv_geom, len(lines)):
+        if "--------------" in lines[index]:
+            break
+        geometry.append(lines[index])
+        size_molecule =+ 1
+    return geometry
 
 def geometryconverter(geometry):
     updated_geometry=[]
@@ -166,7 +157,7 @@ def geometryconverter(geometry):
 def inputgenerator(geometry, filename):
     with open(filename, 'x') as ip:
         ip.writelines("%nprocshared=8\n")
-        ip.writelines("%mem=16GB\n")
+        ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
         ip.writelines("# opt=calcfc freq m062x cc-pvdz empiricaldispersion=gd3\n")
         ip.writelines("\n")
@@ -183,7 +174,7 @@ def inputgenerator(geometry, filename):
         #Writing Link1 part for cc-pVTZ
         ip.writelines("--Link1--\n")
         ip.writelines("%nprocshared=4\n")
-        ip.writelines("%mem=4GB\n")
+        ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
         ip.writelines("# m062x cc-pvtz empiricaldispersion=gd3 Geom=Checkpoint\n")
         ip.writelines("\n")
@@ -196,7 +187,7 @@ def inputgenerator(geometry, filename):
         #Writing Link1 part for cc-pVQZ
         ip.writelines("--Link1--\n")
         ip.writelines("%nprocshared=8\n")
-        ip.writelines("%mem=4GB\n")
+        ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
         ip.writelines("# m062x cc-pvqz empiricaldispersion=gd3 Geom=Checkpoint\n")
         Title=filename[:-4]+" "+"E_ccpvqz"+"\n"
@@ -237,71 +228,89 @@ import subprocess
 inp_file_job_ids = []
 
 def launcherstatp(logfilelist):
+    print(logfilelist)
     for i, logfile1 in enumerate(logfilelist):
-        number = logfile1[17:21]
+    # Extract the base name of the first logfile
+        base_name1 = re.sub(r'(reverse|forward)\.log$', '', logfile1)
+    
         for j, logfile2 in enumerate(logfilelist):
-            if number in logfile2 and logfile1 != logfile2 and j > i:
-                geometry1 = geometryextractor(logfile1)
-                updated_geometry1 = geometryconverter(geometry1)
-                distance1_CC1 = distance(updated_geometry1, CC1)
-
-                geometry2 = geometryextractor(logfile2)
-                updated_geometry2 = geometryconverter(geometry2)
-                distance2_CC1 = distance(updated_geometry2, CC1)
-
-                reduced_filename = logfile1[:-4] + "_optE"
-                with open(reduced_filename + ".sub", "w") as gsub:
-                    gsub.write('#!/bin/sh\n')
-                    gsub.write(f'#SBATCH --job-name={reduced_filename}\n')
-                    gsub.write('#SBATCH --ntasks=12\n')
-                    gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
-                    gsub.write('#SBATCH --time=10:00:00\n')
-                    gsub.write('\n')
-                    gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')
-                    gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')
-                    gsub.write('mkdir -p $GAUSS_SCRDIR\n')
-                    
-                    # Write Gaussian job commands
+            if i < j:  # Ensure each pair is processed only once
+            # Extract the base name of the second logfile
+                base_name2 = re.sub(r'(reverse|forward)\.log$', '', logfile2)
+            
+            # Check if both files share the same base name and differ by reverse/forward
+                if base_name1 == base_name2 and (
+                    logfile1.endswith("reverse.log") and logfile2.endswith("forward.log") or
+                    logfile1.endswith("forward.log") and logfile2.endswith("reverse.log")
+                ):
+                # Process the pair
+                    print(f"Matched pair: {logfile1}, {logfile2}")
+                
+                    geometry1 = geometryextractor(logfile1)
+                    updated_geometry1 = geometryconverter(geometry1)
+                
+                    geometry2 = geometryextractor(logfile2)
+                    updated_geometry2 = geometryconverter(geometry2)
+                
+                    # Determine complex and product filenames based on distance comparison
+                    distance1_CC1 = distance(updated_geometry1, CC1)
+                    distance2_CC1 = distance(updated_geometry2, CC1)
+                
                     if distance1_CC1 > distance2_CC1:
                         filename1 = logfile1[:-4] + "_Complex.gjf"
                         filename2 = logfile2[:-4] + "_Product.gjf"
                     else:
-                        filename2 = logfile2[:-4] + "_Complex.gjf"
-                        filename1 = logfile1[:-4] + "_Product.gjf"
-
+                        filename1 = logfile2[:-4] + "_Complex.gjf"
+                        filename2 = logfile1[:-4] + "_Product.gjf"
+                
                     inputgenerator(updated_geometry1, filename1)
                     inputgenerator(updated_geometry2, filename2)
-                    gsub.write(f'g16 < {filename1} > {filename1}.log\n')
-                    gsub.write(f'g16 < {filename2} > {filename2}.log\n')
+                
+                # Create submission script
+                    reduced_filename = logfile1[:-4] + "_optE"
+                    with open(reduced_filename + ".sub", "w") as gsub:
+                        gsub.write('#!/bin/sh\n')
+                        gsub.write(f'#SBATCH --job-name={reduced_filename}\n')
+                        gsub.write('#SBATCH --ntasks=12\n')
+                        gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
+                        gsub.write('#SBATCH --time=40:00:00\n')
+                        gsub.write('\n')
+                        gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')
+                        gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')
+                        gsub.write('mkdir -p $GAUSS_SCRDIR\n')
+                        gsub.write(f'g16 < {filename1} > {filename1[:-4]}.log\n')
+                        gsub.write(f'g16 < {filename2} > {filename2[:-4]}.log\n')
+
                     
-                # Submit the job
-                result = subprocess.run(
-                    f"sbatch {reduced_filename}.sub",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    universal_newlines=True
-                )
-                if result.returncode == 0:
-                    job_id_match = re.search(r'(\d+)', result.stdout)
-                    if job_id_match:
-                        job_id = job_id_match.group(1)
-                        inp_file_job_ids.append(job_id)
-                        print(f"Job submitted: {job_id}")
-                else:
-                    print(f"Failed to submit job: {result.stderr}")
-          
+                    # Submit the job
+                    result = subprocess.run(
+                        f"sbatch {reduced_filename}.sub",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        universal_newlines=True
+                    )
+                    if result.returncode == 0:
+                        job_id_match = re.search(r'(\d+)', result.stdout)
+                        if job_id_match:
+                            job_id = job_id_match.group(1)
+                            inp_file_job_ids.append(job_id)
+                            print(f"Job submitted: {job_id}")
+                    else:
+                         print(f"Failed to submit job: {result.stderr}")
+           
 
 def launcherTS(xyzlist):
     for xyzfile in xyzlist:
         filename=xyzfile[:-4]+"_SP.gjf"
         reduced_filename=filename[:-4]
+        outputfilename=xyzfile[:-4]+"_SP.log"
         with open(reduced_filename+".sub","w") as gsub:
             gsub.write('#!/bin/sh\n')
             gsub.write(f'#SBATCH --job-name='+filename[:-4]+'\n')
             gsub.write('#SBATCH --ntasks=12\n')
             gsub.write(f'#SBATCH --output='+filename[:-4]+'.logfile\n')
-            gsub.write('#SBATCH --time=01:00:00\n')
+            gsub.write('#SBATCH --time=40:00:00\n')
             gsub.write('\n')
             gsub.write('# Loading modules\n')
             gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')  # Adjust based on the available Gaussian module
@@ -314,7 +323,7 @@ def launcherTS(xyzlist):
             
             SP_inputgenerator(xyzfile,filename)
             
-            gsub.write(f'g16 < {filename} > {filename}.log\n')
+            gsub.write(f'g16 < {filename} > {outputfilename}\n')
             gsub.write('\n')
             gsub.close()
         
@@ -341,7 +350,7 @@ def launcherTS(xyzlist):
 def launch_dependent_job():
     if inp_file_job_ids:
         dependency_str = ":".join(inp_file_job_ids)
-        extractor_script = os.path.join(rootdir, '4_FASTCAR_results.sub')
+        extractor_script = os.path.join(rootdir, '3_Results.sub')
         
         if not os.path.exists(extractor_script):
             raise FileNotFoundError(f"Extractor script not found: {extractor_script}")
@@ -377,7 +386,8 @@ for file in os.listdir():
                 logfilelist.append(file)
                 errorfiles.append(file)
 
+print(logfilelist)
+
 launcherstatp(logfilelist)
 launcherTS(listofTS)
 launch_dependent_job()
-
