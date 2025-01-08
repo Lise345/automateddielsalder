@@ -3,6 +3,19 @@ import re
 import pandas as pd
 import numpy as np
 
+
+# Define energy values for separate reagents per base
+energy_of_separate_reagents = {
+    'FvFv_1_Endo_': -1155.677413618,
+    'FvFv_1_Exo_': -1155.681007653,  
+    'FvFv_2_Endo_': -1155.676828167,
+    'FvFv_2_Exo_': -1155.681007560, 
+    'FvFv_3_Endo_': -1155.679319941,
+    'FvFv_3_Exo_': -1155.681020823, 
+    'FvFv_4_Endo_': -1155.681007485,
+    'FvFv_4_Exo_': -1155.675540753 
+}
+
 def extract_values(file_path):
     pvdz_energy = None
     pvtz_energy = None
@@ -30,17 +43,31 @@ def extract_values(file_path):
         # Assign the last SCF Done value to pvqz_energy
         pvqz_energy = last_scf_done
 
+
     return pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy
 
 directory = './'
 data_dict = {}
 
 for filename in os.listdir(directory):
-    if filename.startswith('ccpvdz_startgeom-') and (filename.endswith('Complex.log') or filename.endswith('Product.log') or filename.endswith('SP.log')):
-        identification_number = filename.split('-')[1].split('_')[0]
+    if (filename.endswith('Complex.log') or filename.endswith('Product.log') or filename.endswith('SP.log')):
+        # Extract ID based on the portion before 'endo' or 'exo'
+        match = re.search(r'(.*(?:endo|exo))', filename)
+        if match:
+            identification_number = match.group(1)
+        else:
+            continue  # Skip if no match found
+
         file_path = os.path.join(directory, filename)
+        print(filename)
         pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy = extract_values(file_path)
-        
+        print('Name')
+        print(identification_number)
+        print('Energies')
+        print(pvdz_energy)
+        print(pvtz_energy)
+        print(pvqz_energy)        
+
         if pvdz_energy is None and pvtz_energy is None and pvqz_energy is None and gibbs_free_energy is None:
             continue  # Skip files that contain the error message
         
@@ -71,7 +98,7 @@ df = pd.DataFrame(data_list, columns=['ID Number', 'Complex PVDZ Energy', 'Compl
                                       'Product PVDZ Energy', 'Product PVTZ Energy', 'Product PVQZ Energy', 'Product Gibbs Correction'])
 
 # Add the new columns
-energy_of_separate_reagents = -936.284718313083
+energy_of_separate_reagents = -1294.99790304487
 
 df['Extrapolated Complex Energy'] = (df['Complex PVDZ Energy'] * df['Complex PVQZ Energy'] - df['Complex PVTZ Energy']**2) / (df['Complex PVDZ Energy'] + df['Complex PVQZ Energy'] - 2 * df['Complex PVTZ Energy'])
 df['Extrapolated TS Energy'] = (df['SP PVDZ Energy'] * df['SP PVQZ Energy'] - df['SP PVTZ Energy']**2) / (df['SP PVDZ Energy'] + df['SP PVQZ Energy'] - 2 * df['SP PVTZ Energy'])
@@ -87,8 +114,8 @@ df.loc[df['Complex Energy'] > 1, 'Pi Value'] = 0  # Set Pi Value to 0 if Complex
 pi_sum = df['Pi Value'].sum()
 df['Percentage'] = df['Pi Value'] / pi_sum
 
-df['Rate Constant'] = ((298.15 * 1.380649E-23) / 6.62607015E-34) * np.exp(-(df['TS Energy'] - df['Complex Energy']) * 1000 * 4.184 / (8.314 * 298.15))
+#df['Rate Constant'] = ((298.15 * 1.380649E-23) / 6.62607015E-34) * np.exp(-(df['TS Energy'] - df['Complex Energy']) * 1000 * 4.184 / (8.314 * 298.15))
 
-df.to_excel('FASTCAR_results.xlsx', index=False)
+df.to_excel('AutomatedDA_results.xlsx', index=False)
 
-print("Data extraction complete. The results are saved in 'FASTCAR_results.xlsx'.")
+print("Data extraction complete. The results are saved in 'AutomatedDA_results.xlsx'.")
