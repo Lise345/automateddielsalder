@@ -13,6 +13,6 @@ module load sPyRMSD/0.8.0-foss-2023a
 module load openpyxl/3.1.2-GCCcore-12.3.0
 
 #Launching calculation
-chmod 777 Results_CREST.py
+chmod 777 Automated_Results_CREST.py
 python Automated_Results_CREST.py
 
