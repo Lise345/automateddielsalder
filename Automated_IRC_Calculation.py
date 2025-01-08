@@ -252,7 +252,7 @@ def IRC_inputgenerator(xyzfile, filename, direction):
         ip.writelines("%nprocshared=12\n")
         ip.writelines("%mem=12GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# irc=("+direction+",calcfc,maxpoints=100,recalc=3) m062x cc-pvdz empiricaldispersion=gd3\n")
+        ip.writelines("# irc=("+direction+",calcfc,maxpoints=100,recalc=3,tight) m062x cc-pvdz empiricaldispersion=gd3\n")
         ip.writelines("\n")
         Title=filename+" "+"IRC"+direction+"\n"
         ip.writelines(Title)
@@ -274,6 +274,8 @@ def launcher(uplist,rootdir,binfolder):
         reduced_filename=xyzfile[:-4]+"_IRC"
         filename_forward=xyzfile[:-4]+"_IRCforward"+".gjf"
         filename_reverse=xyzfile[:-4]+"_IRCreverse"+".gjf"
+        output_forward=xyzfile[:-4]+"_IRCforward"+".log"
+        output_reverse=xyzfile[:-4]+"_IRCreverse"+".log"
         IRC_inputgenerator(xyzfile,filename_forward,"forward")
         IRC_inputgenerator(xyzfile,filename_reverse,"reverse")
         
@@ -282,7 +284,7 @@ def launcher(uplist,rootdir,binfolder):
             gsub.write(f'#SBATCH --job-name={reduced_filename}\n')
             gsub.write('#SBATCH --ntasks=12\n')
             gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
-            gsub.write('#SBATCH --time=10:00:00\n')
+            gsub.write('#SBATCH --time=15:00:00\n')
             gsub.write('\n')
             gsub.write('# Loading modules\n')
             gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')  # Adjust based on the available Gaussian module
@@ -294,8 +296,9 @@ def launcher(uplist,rootdir,binfolder):
             gsub.write('export PATH={binfolder}:$PATH\n')
             gsub.write('dos2unix {filename_forward}\n')
             gsub.write('dos2unix {filename_reverse}\n')
-            gsub.write(f'g16 < {filename_forward} > {filename_forward}.log\n')
-            gsub.write(f'g16 < {filename_reverse} > {filename_reverse}.log\n')
+            gsub.write(f'g16 < {filename_forward} > {output_forward} &\n')
+            gsub.write(f'g16 < {filename_reverse} > {output_reverse} &\n')
+            gsub.write(f'wait')
             gsub.write('\n')
 
     
