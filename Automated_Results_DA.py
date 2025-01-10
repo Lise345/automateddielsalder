@@ -135,7 +135,7 @@ for i, row in df.iterrows():
     ax.set_ylim(y_min, y_max)
     ax.set_xticks([0, 1, 2])
     ax.set_xticklabels(['Complex', 'TS', 'Product'])
-    ax.grid(FALSE)
+    ax.grid(False)
     ax.legend()
 
 plt.tight_layout()
