@@ -2,6 +2,7 @@ import os
 import re
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 # Define energy values for separate reagents per base
@@ -98,7 +99,7 @@ df = pd.DataFrame(data_list, columns=['ID Number', 'Complex PVDZ Energy', 'Compl
                                       'Product PVDZ Energy', 'Product PVTZ Energy', 'Product PVQZ Energy', 'Product Gibbs Correction'])
 
 # Add the new columns
-energy_of_separate_reagents = -1294.99790304487
+energy_of_separate_reagents = -1334.26073115084
 
 df['Extrapolated Complex Energy'] = (df['Complex PVDZ Energy'] * df['Complex PVQZ Energy'] - df['Complex PVTZ Energy']**2) / (df['Complex PVDZ Energy'] + df['Complex PVQZ Energy'] - 2 * df['Complex PVTZ Energy'])
 df['Extrapolated TS Energy'] = (df['SP PVDZ Energy'] * df['SP PVQZ Energy'] - df['SP PVTZ Energy']**2) / (df['SP PVDZ Energy'] + df['SP PVQZ Energy'] - 2 * df['SP PVTZ Energy'])
@@ -115,6 +116,32 @@ pi_sum = df['Pi Value'].sum()
 df['Percentage'] = df['Pi Value'] / pi_sum
 
 #df['Rate Constant'] = ((298.15 * 1.380649E-23) / 6.62607015E-34) * np.exp(-(df['TS Energy'] - df['Complex Energy']) * 1000 * 4.184 / (8.314 * 298.15))
+
+# Plotting the graphs
+fig, axes = plt.subplots(nrows=len(df), ncols=1, figsize=(10, 5 * len(df)))
+
+# Determine the min and max y-axis limits
+y_min = df[['Complex Energy', 'TS Energy', 'Product Energy']].min().min() - 10
+y_max = df[['Complex Energy', 'TS Energy', 'Product Energy']].max().max() + 10
+
+for i, row in df.iterrows():
+    ax = axes[i]
+    ax.hlines(y=row['Complex Energy'], xmin=0, xmax=1, colors='b', linewidth=3, label='Complex Energy')
+    ax.hlines(y=row['TS Energy'], xmin=1, xmax=2, colors='g', linewidth=3, label='TS Energy')
+    ax.hlines(y=row['Product Energy'], xmin=2, xmax=3, colors='r', linewidth=3, label='Product Energy')
+    ax.hlines(y=0, xmin=0, xmax=3, colors='k', linestyles='dashed', label='0 kcal/mol')
+    ax.set_title(f"Reaction Path for {row['ID Number']}")
+    ax.set_ylabel('Energy (kcal/mol)')
+    ax.set_ylim(y_min, y_max)
+    ax.set_xticks([0, 1, 2])
+    ax.set_xticklabels(['Complex', 'TS', 'Product'])
+    ax.grid(FALSE)
+    ax.legend()
+
+plt.tight_layout()
+plt.savefig('reaction_paths.png')
+plt.show()
+
 
 df.to_excel('AutomatedDA_results.xlsx', index=False)
 
