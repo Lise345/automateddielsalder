@@ -11,8 +11,9 @@ export PATH=/vscmnt/brussel_pixiu_home/_user_brussel/105/vsc10536/bin/:$PATH
 #Loading modules
 module load sPyRMSD/0.8.0-foss-2023a
 module load openpyxl/3.1.2-GCCcore-12.3.0
+module load matplotlib/3.7.2-gfbf-2023a
 
 #Launching calculation
-chmod 777 Automated_Results_CREST.py
-python Automated_Results_CREST.py
+chmod 777 Automated_Results_DA.py
+python Automated_Results_DA.py
 
