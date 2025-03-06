@@ -91,11 +91,11 @@ print(errorterm)
 def lastgeometry(filename):
     with open(filename, "r") as readfile:
         lines = readfile.readlines()
-        indices = []
-        for line in lines:
-            if "Standard orientation" in line:
-                index_line = lines.index(line)
-                indices.append(index_line)
+        indices=[]
+        for idx, line in enumerate(lines):  # Track index manually
+            if "                         Standard orientation:                        " in line:
+                indices.append(idx)
+        last_index=indices[-1]
         last_index = indices[-1]
         
         start = last_index + 5
