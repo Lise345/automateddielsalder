@@ -115,32 +115,38 @@ df.loc[df['Complex Energy'] > 1, 'Pi Value'] = 0  # Set Pi Value to 0 if Complex
 pi_sum = df['Pi Value'].sum()
 df['Percentage'] = df['Pi Value'] / pi_sum
 
+df['TS-C'] = df['TS Energy'] - df['Complex Energy']
+df['TS-P'] = df['TS Energy'] - df['Product Energy']
+df['P-C'] = df['Product Energy'] - df['Complex Energy']
+
+
 #df['Rate Constant'] = ((298.15 * 1.380649E-23) / 6.62607015E-34) * np.exp(-(df['TS Energy'] - df['Complex Energy']) * 1000 * 4.184 / (8.314 * 298.15))
 
 # Plotting the graphs
 fig, axes = plt.subplots(nrows=len(df), ncols=1, figsize=(10, 5 * len(df)))
 
 # Determine the min and max y-axis limits
-y_min = df[['Complex Energy', 'TS Energy', 'Product Energy']].min().min() - 10
-y_max = df[['Complex Energy', 'TS Energy', 'Product Energy']].max().max() + 10
+y_min = df[['TS-C', 'TS-P', 'P-C']].min().min() - 10
+y_max = df[['TS-C', 'TS-P', 'P-C']].max().max() + 10
 
 for i, row in df.iterrows():
     ax = axes[i]
-    ax.hlines(y=row['Complex Energy'], xmin=0.75, xmax=1.25, colors='b', linewidth=3, label='Complex Energy')
-    ax.hlines(y=row['TS Energy'], xmin=1.75, xmax=2.25, colors='g', linewidth=3, label='TS Energy')
-    ax.hlines(y=row['Product Energy'], xmin=2.75, xmax=3.25, colors='r', linewidth=3, label='Product Energy')
+    ax.hlines(y=row['TS-C'], xmin=0.75, xmax=1.25, colors='b', linewidth=3, label='Forward barrier (kcal/mol)')
+    ax.hlines(y=row['TS-P'], xmin=1.75, xmax=2.25, colors='g', linewidth=3, label='Reverse barrier (kcal/mol)')
+    ax.hlines(y=row['P-C'], xmin=2.75, xmax=3.25, colors='r', linewidth=3, label='Reaction energy (kcal/mol)')
     ax.hlines(y=0, xmin=0, xmax=3.5, colors='k', linestyles='dashed', label='0 kcal/mol')
     ax.set_title(f"Reaction Path for {row['ID Number']}")
     ax.set_ylabel('Energy (kcal/mol)')
     ax.set_ylim(y_min, y_max)
     ax.set_xticks([1, 2, 3])
-    ax.set_xticklabels(['Complex', 'TS', 'Product'])
+    ax.set_xticklabels(['TS-C', 'TS-P', 'P-C'])
     ax.grid(visible=False)  # Disable grid lines
     ax.legend()
 
 plt.tight_layout()
-plt.savefig('reaction_paths.png')
+plt.savefig('barriers.png')
 plt.show()
+
 
 
 df.to_excel('AutomatedDA_results.xlsx', index=False)
