@@ -1,8 +1,8 @@
 #!/bin/sh
-#SBATCH --job-name=ConfoWoerpelMe
+#SBATCH --job-name=IRC_calc
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=ConfoWoerpelMe.logfile
+#SBATCH --output=IRC_calc.logfile
 #SBATCH --time=10:00:00
 
 #Defining Gaussian Parameters
