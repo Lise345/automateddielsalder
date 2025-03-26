@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --output=ConfoWoerpelMe.logfile
-#SBATCH --time=10:00:00
+#SBATCH --time=01:00:00
 
 #Defining Gaussian Parameters
 export PATH=/vscmnt/brussel_pixiu_home/_user_brussel/105/vsc10536/bin/:$PATH
