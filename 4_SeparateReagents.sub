@@ -14,9 +14,5 @@ export PATH=/vscmnt/brussel_pixiu_home/_user_brussel/105/vsc10536/bin/:$PATH
 #Loading modules
 module load openpyxl/3.1.2-GCCcore-12.3.0
 
-#Launching calculation
-cp Script_4_Reagents.py ./CREST/TS-CREST/Script_4_Reagents.py
-cd CREST/
-cd TS-CREST/
-chmod 777 Script_4_Reagents.py
-python Script_4_Reagents.py
+chmod 777 Automated_Reagents.py
+python Automated_Reagents.py
