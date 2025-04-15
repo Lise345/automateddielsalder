@@ -162,8 +162,8 @@ def launcher(log_files, parameters_file, dependency_script):
             extracted_atoms = extract_coordinates_from_log(log_file)
 
             if not extracted_atoms:
-            print(f"Skipping {log_file}: No coordinates extracted.")
-            continue
+                print(f"Skipping {log_file}: No coordinates extracted.")
+                continue
             
             # Build the graph of atoms connected by bonds
             G = nx.Graph()
