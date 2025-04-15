@@ -25,10 +25,7 @@ with open('./parameters.txt', 'r') as parameters:
     binfolder = re.search(r'bin (.+)', file_content)
     binfolder = binfolder.group(1)
 
-
-
-
-#Part that compiles and checks if the imaginary frequency lies within the #expected range and if we have the number of expected nimag 
+#####Functions#####
 
 def compile_frequencies(lines):
     frequencies=[]
@@ -61,33 +58,6 @@ def checkfrequency(filename):
     else:
         errorterm.append(filename)
 
-listfiles=[]
-for file in os.listdir():
-    if "TS.log" in file:
-        listfiles.append(file)
-            
-incorrectTS= []
-correctTS= []
-errorterm=[]
-
-for file in listfiles:
-    checkfrequency(file)
-
-print("The correct TS are")
-print(correctTS)
-
-
-print("The incorrect TS are")
-print(incorrectTS)
-
-print("The error TS are")
-print(errorterm)
-
-
-
-#Convert files to their xyz
-
-    
 def lastgeometry(filename):
     with open(filename, "r") as readfile:
         lines = readfile.readlines()
@@ -112,22 +82,6 @@ def lastgeometry(filename):
             size_molecule += 1
     return coord, size_molecule
 
-# Dictionary mapping atomic numbers to element symbols 
-atomic_symbols = {
-    1: "H", 2: "He", 3: "Li", 4: "Be", 5: "B", 6: "C", 7: "N", 8: "O", 9: "F", 10: "Ne",
-    11: "Na", 12: "Mg", 13: "Al", 14: "Si", 15: "P", 16: "S", 17: "Cl", 18: "Ar", 19: "K", 20: "Ca",
-    21: "Sc", 22: "Ti", 23: "V", 24: "Cr", 25: "Mn", 26: "Fe", 27: "Co", 28: "Ni", 29: "Cu", 30: "Zn",
-    31: "Ga", 32: "Ge", 33: "As", 34: "Se", 35: "Br", 36: "Kr", 37: "Rb", 38: "Sr", 39: "Y", 40: "Zr",
-    41: "Nb", 42: "Mo", 43: "Tc", 44: "Ru", 45: "Rh", 46: "Pd", 47: "Ag", 48: "Cd", 49: "In", 50: "Sn",
-    51: "Sb", 52: "Te", 53: "I", 54: "Xe", 55: "Cs", 56: "Ba", 57: "La", 58: "Ce", 59: "Pr", 60: "Nd",
-    61: "Pm", 62: "Sm", 63: "Eu", 64: "Gd", 65: "Tb", 66: "Dy", 67: "Ho", 68: "Er", 69: "Tm", 70: "Yb",
-    71: "Lu", 72: "Hf", 73: "Ta", 74: "W", 75: "Re", 76: "Os", 77: "Ir", 78: "Pt", 79: "Au", 80: "Hg",
-    81: "Tl", 82: "Pb", 83: "Bi", 84: "Po", 85: "At", 86: "Rn", 87: "Fr", 88: "Ra", 89: "Ac", 90: "Th",
-    91: "Pa", 92: "U", 93: "Np", 94: "Pu", 95: "Am", 96: "Cm", 97: "Bk", 98: "Cf", 99: "Es", 100: "Fm",
-    101: "Md", 102: "No", 103: "Lr", 104: "Rf", 105: "Db", 106: "Sg", 107: "Bh", 108: "Hs", 109: "Mt",
-    110: "Ds", 111: "Rg", 112: "Cn", 113: "Nh", 114: "Fl", 115: "Mc", 116: "Lv", 117: "Ts", 118: "Og"
-}
-
 def atomincoord(coord):
     for atom in coord:
         atom_number = atom[1]
@@ -137,9 +91,6 @@ def atomincoord(coord):
         else:
             print("Atom does not exist")
     return coord
-
-IRClist=[]
-
 
 def convert_gjf_to_xyz(filename):
     coord, size_molecule = lastgeometry(filename)
@@ -157,10 +108,6 @@ def convert_gjf_to_xyz(filename):
         xyzfile.writelines(atom[1]+' '+str(atom[3])+' '+str(atom[4])+' '+str(atom[5])+'\n')
     IRClist.append(newfile)
     return 'Done'
-        
-for file in correctTS:
-    convert_gjf_to_xyz(file)
-        
 
 def read_coordinates(file_path):
     with open(file_path, 'r') as file:
@@ -205,25 +152,6 @@ def XYZspliter():
             ow.write(str(natoms) + "\n \n")
             ow.writelines(lines[(j * (natoms + 2) + 2):((j + 1) * (natoms + 2))])
 
-
-
-def energyfinder(logfile):
-    with open(logfile, 'r') as file:
-        lines = file.readlines()
-    indexlist=[]
-    for line in lines:
-        if "SCF Done" in line:
-            indexlist.append(lines.index(line))
-    lastindex=indexlist[len(indexlist)-1]
-    linelist=lines[lastindex].split()
-    for word in linelist:
-        if word=="=":
-            Energy=str(float(linelist[linelist.index(word)+1])*627.503)
-    return Energy
-
-
-
-
 def save_to_excel(incorrectTS, correctTS, IRClist, filename="TS_analysis.xlsx"):
     # Create a dictionary with lists to save
     data = {
@@ -239,11 +167,19 @@ def save_to_excel(incorrectTS, correctTS, IRClist, filename="TS_analysis.xlsx"):
     df.to_excel(filename, index=False, engine='openpyxl')
     print(f"Data successfully saved to {filename}")
 
-save_to_excel(incorrectTS, correctTS, IRClist)
-
-print("Number of IRC calculations: "+str(len(IRClist)))
-
-#IRC calculation runner
+def energyfinder(logfile):
+    with open(logfile, 'r') as file:
+        lines = file.readlines()
+    indexlist=[]
+    for line in lines:
+        if "SCF Done" in line:
+            indexlist.append(lines.index(line))
+    lastindex=indexlist[len(indexlist)-1]
+    linelist=lines[lastindex].split()
+    for word in linelist:
+        if word=="=":
+            Energy=str(float(linelist[linelist.index(word)+1])*627.503)
+    return Energy
 
 def IRC_inputgenerator(xyzfile, filename, direction):
     with open(xyzfile, 'r') as file:
@@ -349,6 +285,56 @@ def launcher(uplist,rootdir,binfolder):
     else:
         print("No jobs were submitted, skipping dependency job submission.")
     
+
+
+#####Body code#####
+
+listfiles=[]
+for file in os.listdir():
+    if "TS.log" in file:
+        listfiles.append(file)
+            
+incorrectTS= []
+correctTS= []
+errorterm=[]
+
+for file in listfiles:
+    checkfrequency(file)
+
+print("The correct TS are")
+print(correctTS)
+
+print("The incorrect TS are")
+print(incorrectTS)
+
+print("The error TS are")
+print(errorterm)
+
+
+# Dictionary mapping atomic numbers to element symbols 
+atomic_symbols = {
+    1: "H", 2: "He", 3: "Li", 4: "Be", 5: "B", 6: "C", 7: "N", 8: "O", 9: "F", 10: "Ne",
+    11: "Na", 12: "Mg", 13: "Al", 14: "Si", 15: "P", 16: "S", 17: "Cl", 18: "Ar", 19: "K", 20: "Ca",
+    21: "Sc", 22: "Ti", 23: "V", 24: "Cr", 25: "Mn", 26: "Fe", 27: "Co", 28: "Ni", 29: "Cu", 30: "Zn",
+    31: "Ga", 32: "Ge", 33: "As", 34: "Se", 35: "Br", 36: "Kr", 37: "Rb", 38: "Sr", 39: "Y", 40: "Zr",
+    41: "Nb", 42: "Mo", 43: "Tc", 44: "Ru", 45: "Rh", 46: "Pd", 47: "Ag", 48: "Cd", 49: "In", 50: "Sn",
+    51: "Sb", 52: "Te", 53: "I", 54: "Xe", 55: "Cs", 56: "Ba", 57: "La", 58: "Ce", 59: "Pr", 60: "Nd",
+    61: "Pm", 62: "Sm", 63: "Eu", 64: "Gd", 65: "Tb", 66: "Dy", 67: "Ho", 68: "Er", 69: "Tm", 70: "Yb",
+    71: "Lu", 72: "Hf", 73: "Ta", 74: "W", 75: "Re", 76: "Os", 77: "Ir", 78: "Pt", 79: "Au", 80: "Hg",
+    81: "Tl", 82: "Pb", 83: "Bi", 84: "Po", 85: "At", 86: "Rn", 87: "Fr", 88: "Ra", 89: "Ac", 90: "Th",
+    91: "Pa", 92: "U", 93: "Np", 94: "Pu", 95: "Am", 96: "Cm", 97: "Bk", 98: "Cf", 99: "Es", 100: "Fm",
+    101: "Md", 102: "No", 103: "Lr", 104: "Rf", 105: "Db", 106: "Sg", 107: "Bh", 108: "Hs", 109: "Mt",
+    110: "Ds", 111: "Rg", 112: "Cn", 113: "Nh", 114: "Fl", 115: "Mc", 116: "Lv", 117: "Ts", 118: "Og"
+}
+
+IRClist=[]        
+for file in correctTS:
+    convert_gjf_to_xyz(file)
+        
+save_to_excel(incorrectTS, correctTS, IRClist)
+print("Number of IRC calculations: "+str(len(IRClist)))
+
+#####Running calculations#####
 
 launcher(IRClist,rootdir,binfolder)
 
