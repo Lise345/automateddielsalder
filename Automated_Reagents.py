@@ -1,11 +1,59 @@
 import os
 import re
 import subprocess
+import networkx as nx
+import numpy as np
 
 # Atomic symbols mapping
 atomic_symbols = {
     1: "H", 6: "C", 7: "N", 8: "O", 9: "F", 16: "S", 17: "Cl"  # Add other atomic symbols if needed
 }
+
+def read_parameters(file_path):
+    """Reads molecule atom indices from parameters.txt."""
+    with open(file_path, 'r') as file:
+        file_content = file.read()
+
+    rootdir_match = re.search(r'rootdir\s+(.+)', file_content)
+    rootdir = rootdir_match.group(1).strip().strip("'\"")
+    
+    time_sr = re.search(r'Time for Separate Reagent calcs\s+(\d+)', file_content)
+    if time_sr:
+        time_for_sr_calcs = int(time_sr.group(1))
+        sr_time = f'{time_for_sr_calcs}:00:00'  # Format to HH:MM:SS
+    else:
+        sr_time = '25:00:00'  # Default value if not found
+        print("Time for stationary calculations not found, defaulting to 25:00:00")
+
+    return sr_time, rootdir
+
+# Covalent radii in Å (simplified example)
+vdw_radii = {
+    'H': 1.20, 'He': 1.40, 'Li': 1.82, 'Be': 1.53, 'B': 1.92,
+    'C': 1.70, 'N': 1.55, 'O': 1.52, 'F': 1.47, 'Ne': 1.54,
+    'Na': 2.27, 'Mg': 1.73, 'Al': 1.84, 'Si': 2.10, 'P': 1.80,
+    'S': 1.80, 'Cl': 1.75, 'Ar': 1.88, 'K': 2.75, 'Ca': 2.31,
+    'Sc': 2.30, 'Ti': 2.15, 'V': 2.05, 'Cr': 2.05, 'Mn': 2.05,
+    'Fe': 2.00, 'Co': 2.00, 'Ni': 1.97, 'Cu': 1.96, 'Zn': 2.01,
+    'Ga': 1.87, 'Ge': 2.11, 'As': 1.85, 'Se': 1.90, 'Br': 1.85,
+    'Kr': 2.02, 'Rb': 3.03, 'Sr': 2.49, 'Y': 2.40, 'Zr': 2.30,
+    'Nb': 2.15, 'Mo': 2.10, 'Tc': 2.05, 'Ru': 2.05, 'Rh': 2.00,
+    'Pd': 2.05, 'Ag': 2.03, 'Cd': 2.18, 'In': 1.93, 'Sn': 2.17,
+    'Sb': 2.06, 'Te': 2.06, 'I': 1.98, 'Xe': 2.16, 'Cs': 3.43,
+    'Ba': 2.68, 'La': 2.50, 'Ce': 2.48, 'Pr': 2.47, 'Nd': 2.45,
+    'Pm': 2.43, 'Sm': 2.42, 'Eu': 2.40, 'Gd': 2.38, 'Tb': 2.37,
+    'Dy': 2.35, 'Ho': 2.33, 'Er': 2.32, 'Tm': 2.30, 'Yb': 2.28,
+    'Lu': 2.27, 'Hf': 2.25, 'Ta': 2.20, 'W': 2.10, 'Re': 2.05,
+    'Os': 2.00, 'Ir': 2.00, 'Pt': 2.05, 'Au': 2.10, 'Hg': 2.05,
+    'Tl': 1.96, 'Pb': 2.02, 'Bi': 2.07, 'Po': 1.97, 'At': 2.02,
+    'Rn': 2.20, 'Fr': 3.48, 'Ra': 2.83, 'Ac': 2.60, 'Th': 2.37,
+    'Pa': 2.43, 'U': 2.40, 'Np': 2.39, 'Pu': 2.43, 'Am': 2.44,
+    'Cm': 2.45, 'Bk': 2.44, 'Cf': 2.45, 'Es': 2.45, 'Fm': 2.45,
+    'Md': 2.45, 'No': 2.45, 'Lr': 2.45
+}
+
+
+
 
 def extract_coordinates_from_log(file_path):
     """Extracts atomic symbols and coordinates from the LAST Standard orientation block."""
@@ -33,26 +81,7 @@ def extract_coordinates_from_log(file_path):
             extracted_data.append([atom_symbol, x, y, z])
     return extracted_data
 
-def read_parameters(file_path):
-    """Reads molecule atom indices from parameters.txt."""
-    with open(file_path, 'r') as file:
-        file_content = file.read()
 
-    molecule1_atoms = list(map(int, re.search(r'molecule1_atoms\s*=\s*(.+)', file_content).group(1).split()))
-    molecule2_atoms = list(map(int, re.search(r'molecule2_atoms\s*=\s*(.+)', file_content).group(1).split()))
-
-    rootdir_match = re.search(r'rootdir\s+(.+)', file_content)
-    rootdir = rootdir_match.group(1).strip().strip("'\"")
-    
-    time_sr = re.search(r'Time for Separate Reagent calcs\s+(\d+)', file_content)
-    if time_sr:
-        time_for_sr_calcs = int(time_sr.group(1))
-        sr_time = f'{time_for_sr_calcs}:00:00'  # Format to HH:MM:SS
-    else:
-        sr_time = '25:00:00'  # Default value if not found
-        print("Time for stationary calculations not found, defaulting to 25:00:00")
-
-    return molecule1_atoms, molecule2_atoms, sr_time, rootdir
 
 def write_gaussian_input(file_name, molecule, suffix):
     """Writes a Gaussian input file."""
@@ -121,20 +150,45 @@ g16 -p=$SLURM_CPUS_PER_TASK -m=80GB < {input_file} > {output_file}
 def launcher(log_files, parameters_file, dependency_script):
     MAX_JOBS = 100
     """Generates Gaussian input files, submission scripts, and launches jobs."""
-    molecule1_indices, molecule2_indices, sr_time, rootdir = read_parameters(parameters_file)
+    sr_time, rootdir = read_parameters(parameters_file)
     job_ids = []
 
     n=0
 
     while n < MAX_JOBS:
         for log_file in log_files:
+
             base_name = os.path.splitext(log_file)[0]
             extracted_atoms = extract_coordinates_from_log(log_file)
-            
-            if not extracted_atoms:
-                print(f"Skipping {log_file}: No coordinates extracted.")
-                continue
 
+            if not extracted_atoms:
+            print(f"Skipping {log_file}: No coordinates extracted.")
+            continue
+            
+            # Build the graph of atoms connected by bonds
+            G = nx.Graph()
+            positions = np.array([[x[1], x[2], x[3]] for x in extracted_atoms])
+            
+            for i, atom_i in enumerate(extracted_atoms):
+                G.add_node(i+1)  # Atom numbers are 1-based
+                for j in range(i+1, len(extracted_atoms)):
+                    atom_j = extracted_atoms[j]
+                    ri = radii.get(atom_i[0], 1.5)
+                    rj = radii.get(atom_j[0], 1.5)
+                    max_dist = (ri + rj) / 2
+                    dist = np.linalg.norm(positions[i] - positions[j])
+                    if dist < max_dist:
+                        G.add_edge(i+1, j+1)
+            
+            # Find connected components (molecules)
+            molecules = list(nx.connected_components(G))
+            
+            # Sort each molecule and return as list of lists
+            molecules_sorted = [sorted(list(mol)) for mol in molecules]
+            
+            for idx, mol in enumerate(molecules_sorted, 1):
+                globals()[f"molecule{idx}_indices"] = mol
+                
             # Extract molecules
             molecule1 = [extracted_atoms[i - 1] for i in molecule1_indices]
             molecule2 = [extracted_atoms[i - 1] for i in molecule2_indices]
