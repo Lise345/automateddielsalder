@@ -271,11 +271,9 @@ def launcherstatp(logfilelist):
                     with open(reduced_filename + ".sub", "w") as gsub:
                         gsub.write('#!/bin/sh\n')
                         gsub.write(f'#SBATCH --job-name={reduced_filename}\n')
-                        gsub.write('#SBATCH --cpus-per-task=12\n')
+                        gsub.write('#SBATCH --ntasks=12\n')
                         gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
                         gsub.write('#SBATCH --time=40:00:00\n')
-			gsub.write('#SBATCH --partition=zen4\n')
-                        gsub.write('#SBATCH --mem-per-cpu=5GB\n')
                         gsub.write('\n')
                         gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')
                         gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')
@@ -309,12 +307,10 @@ def launcherTS(xyzlist):
         outputfilename=xyzfile[:-4]+"_SP.log"
         with open(reduced_filename+".sub","w") as gsub:
             gsub.write('#!/bin/sh\n')
-            gsub.write(f'#SBATCH --job-name={reduced_filename}\n')
-            gsub.write('#SBATCH --cpus-per-task=12\n')
-            gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
+            gsub.write(f'#SBATCH --job-name='+filename[:-4]+'\n')
+            gsub.write('#SBATCH --ntasks=12\n')
+            gsub.write(f'#SBATCH --output='+filename[:-4]+'.logfile\n')
             gsub.write('#SBATCH --time=40:00:00\n')
-	    gsub.write('#SBATCH --partition=zen4\n')
-            gsub.write('#SBATCH --mem-per-cpu=5GB\n')
             gsub.write('\n')
             gsub.write('# Loading modules\n')
             gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')  # Adjust based on the available Gaussian module
