@@ -1,12 +1,36 @@
 import os
 import re
 import subprocess
-import networkx as nx
 import numpy as np
 
 # Atomic symbols mapping
 atomic_symbols = {
     1: "H", 6: "C", 7: "N", 8: "O", 9: "F", 16: "S", 17: "Cl"  # Add other atomic symbols if needed
+}
+
+# Covalent radii in Å
+radii = {
+    'H': 1.20, 'He': 1.40, 'Li': 1.82, 'Be': 1.53, 'B': 1.92,
+    'C': 1.70, 'N': 1.55, 'O': 1.52, 'F': 1.47, 'Ne': 1.54,
+    'Na': 2.27, 'Mg': 1.73, 'Al': 1.84, 'Si': 2.10, 'P': 1.80,
+    'S': 2.10, 'Cl': 1.75, 'Ar': 1.88, 'K': 2.75, 'Ca': 2.31,
+    'Sc': 2.30, 'Ti': 2.15, 'V': 2.05, 'Cr': 2.05, 'Mn': 2.05,
+    'Fe': 2.00, 'Co': 2.00, 'Ni': 1.97, 'Cu': 1.96, 'Zn': 2.01,
+    'Ga': 1.87, 'Ge': 2.11, 'As': 1.85, 'Se': 1.90, 'Br': 1.85,
+    'Kr': 2.02, 'Rb': 3.03, 'Sr': 2.49, 'Y': 2.40, 'Zr': 2.30,
+    'Nb': 2.15, 'Mo': 2.10, 'Tc': 2.05, 'Ru': 2.05, 'Rh': 2.00,
+    'Pd': 2.05, 'Ag': 2.03, 'Cd': 2.18, 'In': 1.93, 'Sn': 2.17,
+    'Sb': 2.06, 'Te': 2.06, 'I': 1.98, 'Xe': 2.16, 'Cs': 3.43,
+    'Ba': 2.68, 'La': 2.50, 'Ce': 2.48, 'Pr': 2.47, 'Nd': 2.45,
+    'Pm': 2.43, 'Sm': 2.42, 'Eu': 2.40, 'Gd': 2.38, 'Tb': 2.37,
+    'Dy': 2.35, 'Ho': 2.33, 'Er': 2.32, 'Tm': 2.30, 'Yb': 2.28,
+    'Lu': 2.27, 'Hf': 2.25, 'Ta': 2.20, 'W': 2.10, 'Re': 2.05,
+    'Os': 2.00, 'Ir': 2.00, 'Pt': 2.05, 'Au': 2.10, 'Hg': 2.05,
+    'Tl': 1.96, 'Pb': 2.02, 'Bi': 2.07, 'Po': 1.97, 'At': 2.02,
+    'Rn': 2.20, 'Fr': 3.48, 'Ra': 2.83, 'Ac': 2.60, 'Th': 2.37,
+    'Pa': 2.43, 'U': 2.40, 'Np': 2.39, 'Pu': 2.43, 'Am': 2.44,
+    'Cm': 2.45, 'Bk': 2.44, 'Cf': 2.45, 'Es': 2.45, 'Fm': 2.45,
+    'Md': 2.45, 'No': 2.45, 'Lr': 2.45
 }
 
 def read_parameters(file_path):
@@ -155,63 +179,90 @@ def launcher(log_files, parameters_file, dependency_script):
 
     n=0
 
-    while n < MAX_JOBS:
-        for log_file in log_files:
+    for log_file in log_files:
+        if n >= MAX_JOBS:
+            break
 
-            base_name = os.path.splitext(log_file)[0]
-            extracted_atoms = extract_coordinates_from_log(log_file)
+        base_name = os.path.splitext(log_file)[0]
+        atoms = extract_coordinates_from_log(log_file)
 
-            if not extracted_atoms:
-                print(f"Skipping {log_file}: No coordinates extracted.")
-                continue
-            
-            # Build the graph of atoms connected by bonds
-            G = nx.Graph()
-            positions = np.array([[x[1], x[2], x[3]] for x in extracted_atoms])
-            
-            for i, atom_i in enumerate(extracted_atoms):
-                G.add_node(i+1)  # Atom numbers are 1-based
-                for j in range(i+1, len(extracted_atoms)):
-                    atom_j = extracted_atoms[j]
-                    ri = radii.get(atom_i[0], 1.5)
-                    rj = radii.get(atom_j[0], 1.5)
-                    max_dist = (ri + rj) / 2
-                    dist = np.linalg.norm(positions[i] - positions[j])
-                    if dist < max_dist:
-                        G.add_edge(i+1, j+1)
-            
-            # Find connected components (molecules)
-            molecules = list(nx.connected_components(G))
-            
-            # Sort each molecule and return as list of lists
-            molecules_sorted = [sorted(list(mol)) for mol in molecules]
-            
-            for idx, mol in enumerate(molecules_sorted, 1):
-                globals()[f"molecule{idx}_indices"] = mol
-                
-            # Extract molecules
-            molecule1 = [extracted_atoms[i - 1] for i in molecule1_indices]
-            molecule2 = [extracted_atoms[i - 1] for i in molecule2_indices]
+        if not atoms:
+            print(f"Skipping {log_file}: No coordinates extracted.")
+            continue
+        
+        # Build the graph of atoms connected by bonds
 
-            # Write input files
-            input_R1 = write_gaussian_input(base_name, molecule1, "R1")
-            input_R2 = write_gaussian_input(base_name, molecule2, "R2")
-            
-            # Create and submit jobs
-            for suffix, input_file in zip(["R1", "R2"], [input_R1, input_R2]):
-                output_file = input_file.replace(".gjf", ".log")
-                job_name = f"{base_name}_{suffix}"
-                script_name = create_submission_script(job_name, input_file, output_file, sr_time)
+        positions = np.array([[x[1], x[2], x[3]] for x in atoms])
+        
+        # Step 1: Build connectivity graph manually
+        def are_bonded(i, j):
+            ri = radii.get(atoms[i][0], 1.5)
+            rj = radii.get(atoms[j][0], 1.5)
+            max_dist = (ri + rj) / 2
+            dist = np.linalg.norm(positions[i] - positions[j])
+            return dist < max_dist
+        
+        # Build adjacency list
+        adj = {i: [] for i in range(len(atoms))}
+        for i in range(len(atoms)):
+            for j in range(i + 1, len(atoms)):
+                if are_bonded(i, j):
+                    adj[i].append(j)
+                    adj[j].append(i)
+        
+        # Step 2: Find connected components (molecules) using BFS
+        def find_connected_components(adj):
+            visited = set()
+            components = []
+        
+            for start in adj:
+                if start not in visited:
+                    queue = [start]
+                    component = []
+                    while queue:
+                        node = queue.pop(0)
+                        if node not in visited:
+                            visited.add(node)
+                            component.append(node + 1)  # convert to 1-based index
+                            queue.extend(adj[node])
+                    components.append(sorted(component))
+            return components
+        
+        # Get molecules
+        molecules = find_connected_components(adj)
+        
+        # Step 3: Assign molecules to local variables
+        if len(molecules) < 2:
+            print(f"Skipping {log_file}: only {len(molecules)} molecule(s) found.")
+            with open("skipped_files.txt", "a") as log:
+                log.write(f"{log_file} - only {len(molecules)} molecule(s) found\n")
+            continue
+        
+        molecule1_indices = molecules[0]
+        molecule2_indices = molecules[1]
+        molecule1 = [atoms[i - 1] for i in molecule1_indices]
+        molecule2 = [atoms[i - 1] for i in molecule2_indices]
+        
 
-                result = subprocess.run(f"sbatch {script_name}", shell=True, stdout=subprocess.PIPE, text=True)
-                if result.returncode == 0:
-                    job_id = re.search(r'(\d+)', result.stdout)
-                    if job_id:
-                        job_ids.append(job_id.group(1))
-                        print(f"Submitted job {job_name} with ID {job_id.group(1)}")
-                        n+=1
-                else:
-                    print(f"Failed to submit job {job_name}: {result.stderr}")
+        # Write input files
+        input_R1 = write_gaussian_input(base_name, molecule1, "R1")
+        input_R2 = write_gaussian_input(base_name, molecule2, "R2")
+        
+        # Create and submit jobs
+        for suffix, input_file in zip(["R1", "R2"], [input_R1, input_R2]):
+            output_file = input_file.replace(".gjf", ".log")
+            job_name = f"{base_name}_{suffix}"
+            script_name = create_submission_script(job_name, input_file, output_file, sr_time)
+
+            result = subprocess.run(f"sbatch {script_name}", shell=True, stdout=subprocess.PIPE, text=True)
+            if result.returncode == 0:
+                job_id = re.search(r'(\d+)', result.stdout)
+                if job_id:
+                    job_ids.append(job_id.group(1))
+                    print(f"Submitted job {job_name} with ID {job_id.group(1)}")
+                    n+=1
+            else:
+                print(f"Failed to submit job {job_name}: {result.stderr}")
 
     # Launch dependent script
     if job_ids:
@@ -232,7 +283,6 @@ def launcher(log_files, parameters_file, dependency_script):
 if __name__ == "__main__":
     log_files = [f for f in os.listdir("./") if f.endswith("Complex.log")]
     parameters_file = "parameters.txt"
-    molecule1_atoms, molecule2_atoms, sr_time, rootdir = read_parameters(parameters_file)
-    dependency_script = os.path.join(rootdir, '5_BOLTCAR_Results.sub')
+    sr_time, rootdir = read_parameters(parameters_file)
+    dependency_script = os.path.join(rootdir, '3_Results.sub')
     launcher(log_files, parameters_file, dependency_script)
-
