@@ -234,7 +234,7 @@ def launcher(log_files, parameters_file, dependency_script):
         # Step 3: Assign molecules to local variables
         if len(molecules) < 2:
             print(f"Skipping {log_file}: only {len(molecules)} molecule(s) found.")
-            with open("skipped_files.txt", "a") as log:
+            with open("OnlyOneMoleculeFound.txt", "a") as log:
                 log.write(f"{log_file} - only {len(molecules)} molecule(s) found\n")
             continue
         
@@ -262,7 +262,7 @@ def launcher(log_files, parameters_file, dependency_script):
                     print(f"Submitted job {job_name} with ID {job_id.group(1)}")
                     n+=1
             else:
-                print(f"Failed to submit job {job_name}: {result.stderr}")
+                #print(f"Failed to submit job {job_name}: {result.stderr}")
 
     # Launch dependent script
     if job_ids:
