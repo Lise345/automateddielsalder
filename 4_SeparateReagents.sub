@@ -1,21 +1,33 @@
 #!/bin/sh
-#SBATCH --job-name=SeparateReagents
+#SBATCH --job-name=3_Results
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=4_SeparateReagents.logfile
-#SBATCH --time=00:20:00
-
-#Opening correct folder
-cd $VSC_SCRATCH/lise/13_Ondemand/Paul/automateddielsalder/Correction/
+#SBATCH --output=3_Results.err
+#SBATCH --time=01:00:00
 
 #Defining Gaussian Parameters
 export PATH=/vscmnt/brussel_pixiu_home/_user_brussel/105/vsc10536/bin/:$PATH
 
-
 #Loading modules
+module load sPyRMSD/0.8.0-foss-2023a
 module load openpyxl/3.1.2-GCCcore-12.3.0
 module load matplotlib/3.7.2-gfbf-2023a
 
 #Launching calculation
-chmod 777 Automated_Reagents.py
-python Automated_Reagents.py
+chmod 777 Automated_Results_CREST.py
+python Automated_Results_CREST.py
+
+rm *slurm*
+
+mkdir -p Results
+mkdir -p Results/inputs
+mkdir -p Results/outputs
+mkdir -p Results/submits
+
+cp *.log Results/outputs
+cp *.logfile Results/outputs
+cp *.gjf Results/inputs
+
+#rm *.log
+#rm *.logfile
+#rm *.gjf
