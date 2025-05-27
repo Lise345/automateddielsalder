@@ -1,8 +1,8 @@
 #!/bin/sh
-#SBATCH --job-name=Results
+#SBATCH --job-name=3_Results
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=Results.logfile
+#SBATCH --output=3_Results.err
 #SBATCH --time=01:00:00
 
 #Defining Gaussian Parameters
@@ -17,3 +17,17 @@ module load matplotlib/3.7.2-gfbf-2023a
 chmod 777 Automated_Results_DA.py
 python Automated_Results_DA.py
 
+rm *slurm*
+
+mkdir -p Results
+mkdir -p Results/inputs
+mkdir -p Results/outputs
+mkdir -p Results/submits
+
+cp *.log Results/outputs
+cp *.logfile Results/outputs
+cp *.gjf Results/inputs
+
+#rm *.log
+#rm *.logfile
+#rm *.gjf
