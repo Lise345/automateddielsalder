@@ -25,9 +25,10 @@ Basis cbs
 DFT solvent  none
 Additional calculation  none
 Excluding nodes 01-06
-Energy of separate reagents -936.284718313083
+Energy of separate reagents -1294.9979030448700
 Charge 0
 Multiplicity 1
+Gaussian module Gaussian/G16.B.01
 
 --------------------------------------------------
 ---------------Geometry information---------------
@@ -44,5 +45,5 @@ CC1_in = "1 9"
 ---------------------Used path--------------------
 --------------------------------------------------
 
-rootdir /rhea/scratch/brussel/105/vsc10536/lise/CHANGETOYOURPATH
+rootdir /rhea/scratch/brussel/105/vsc10536/lise/13_Ondemand/Paul/AutomatedDA
 bin /vscmnt/brussel_pixiu_home/_user_brussel/105/vsc10536/bin/
