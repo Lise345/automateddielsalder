@@ -48,8 +48,21 @@ def read_parameters(file_path):
     else:
         sr_time = '25:00:00'  # Default value if not found
         print("Time for stationary calculations not found, defaulting to 25:00:00")
+        
+    functional = re.search(r'Functional\s+(\S+)', file_content, re.IGNORECASE).group(1)
+    dispersion = re.search(r'Dispersion\s+(\S+)', file_content, re.IGNORECASE).group(1)
+    basis_raw = re.search(r'Basis\s+(\S+)', file_content, re.IGNORECASE).group(1)
+    solvent = re.search(r'DFT solvent\s+(\S+)', file_content, re.IGNORECASE).group(1)
 
-    return sr_time, rootdir
+    # Translate 'cbs' to cc-pvdz as base level
+    basis = "cc-pvdz" if basis_raw.lower() == "cbs" else basis_raw.lower()
+
+        
+    # Extract Gaussian module
+    gaussian_module_match = re.search(r'Gaussian module (.+)', file_content)
+    gaussian_module = gaussian_module_match.group(1).strip()
+
+    return functional.lower(), basis, dispersion.lower(), solvent.lower(), gaussian_module, sr_time, rootdir
 
 # Covalent radii in Å (simplified example)
 vdw_radii = {
@@ -107,29 +120,31 @@ def extract_coordinates_from_log(file_path):
 
 
 
-def write_gaussian_input(file_name, molecule, suffix):
-    """Writes a Gaussian input file."""
+def write_gaussian_input(file_name, molecule, suffix, parameter_file="parameters.txt"):
+    """Writes a Gaussian input file based on parameters.txt."""
+    functional, basis, dispersion, solvent = read_dft_parameters(parameter_file)
     output_path = f"{file_name}_{suffix}.gjf"
-    header = f"""%nprocshared=8
-%mem=16GB
-%chk={file_name}_{suffix}.chk
-# opt=calcfc freq m062x cc-pvdz empiricaldispersion=gd3 
 
-{file_name}_{suffix} optfreq
-
-0 1\n"""
     with open(output_path, 'w') as output_file:
-        output_file.write(header)
+        # Write header
+        output_file.write(f"%nprocshared=8\n")
+        output_file.write(f"%mem=16GB\n")
+        output_file.write(f"%chk={file_name}_{suffix}.chk\n")
+        output_file.write(f"# opt=calcfc freq {functional} {basis} {dispersion}\n\n")
+        output_file.write(f"{file_name}_{suffix} optfreq\n\n")
+        output_file.write("0 1\n")
+        
         for atom in molecule:
             output_file.write(f" {atom[0]:<2} {atom[1]:>15.8f} {atom[2]:>15.8f} {atom[3]:>15.8f}\n")
         output_file.write("\n")
 
-# Append the required "Link1" sections with the correct name
-        link1_text = f"""--Link1--
+        # Only add Link1 if basis was originally "cbs" → i.e. basis was translated to "cc-pvdz"
+        if basis == "cc-pvdz":
+            link1_text = f"""--Link1--
 %nprocshared=8
 %mem=16GB
 %chk={file_name}_{suffix}.chk
-# m062x cc-pvtz empiricaldispersion=gd3 Geom=Checkpoint
+# {functional} cc-pvtz {dispersion} Geom=Checkpoint
 
 {file_name}_{suffix} E_ccpvtz
 
@@ -139,18 +154,18 @@ def write_gaussian_input(file_name, molecule, suffix):
 %nprocshared=8
 %mem=16GB
 %chk={file_name}_{suffix}.chk
-# m062x cc-pvqz empiricaldispersion=gd3 Geom=Checkpoint
+# {functional} cc-pvqz {dispersion} Geom=Checkpoint
 
 {file_name}_{suffix} E_ccpvqz
 
 0 1
 
 """
-        output_file.write(link1_text)
+            output_file.write(link1_text)
 
     return output_path
 
-def create_submission_script(job_name, input_file, output_file,sr_time):
+def create_submission_script(job_name, input_file, output_file, sr_time, gaussian_module):
     """Creates a SLURM submission script."""
     script_name = f"{job_name}.sub"
     with open(script_name, 'w') as script:
@@ -162,19 +177,18 @@ def create_submission_script(job_name, input_file, output_file,sr_time):
 #SBATCH --partition=zen4
 #SBATCH --mem-per-cpu=5GB
 
-module load Gaussian/G16.A.03-intel-2022a
+module load {gaussian_module}
 export GAUSS_SCRDIR=$VSC_SCRATCH_VO_USER/gauss_scrdir$SLURM_JOB_ID
 mkdir -p $GAUSS_SCRDIR
 g16 -p=$SLURM_CPUS_PER_TASK -m=80GB < {input_file} > {output_file}
 """)
-        script.write('rm -r ${VSC_SCRATCH_VO_USER:?}/{gauss_scrdir$SLURM_JOB_ID:?}\n')
-        script.write('\n')
+
     return script_name
 
 def launcher(log_files, parameters_file, dependency_script):
     MAX_JOBS = 100
     """Generates Gaussian input files, submission scripts, and launches jobs."""
-    sr_time, rootdir = read_parameters(parameters_file)
+    sr_time, rootdir, gaussian_module = read_parameters(parameters_file)
     job_ids = []
 
     n=0
@@ -252,7 +266,7 @@ def launcher(log_files, parameters_file, dependency_script):
         for suffix, input_file in zip(["R1", "R2"], [input_R1, input_R2]):
             output_file = input_file.replace(".gjf", ".log")
             job_name = f"{base_name}_{suffix}"
-            script_name = create_submission_script(job_name, input_file, output_file, sr_time)
+            script_name = create_submission_script(job_name, input_file, output_file, sr_time, gaussian_module)
 
             result = subprocess.run(f"sbatch {script_name}", shell=True, stdout=subprocess.PIPE, text=True)
             if result.returncode == 0:
@@ -262,7 +276,7 @@ def launcher(log_files, parameters_file, dependency_script):
                     print(f"Submitted job {job_name} with ID {job_id.group(1)}")
                     n+=1
             else:
-                #print(f"Failed to submit job {job_name}: {result.stderr}")
+                print(f"Failed to submit job {job_name}: {result.stderr}")
 
     # Launch dependent script
     if job_ids:
@@ -283,6 +297,6 @@ def launcher(log_files, parameters_file, dependency_script):
 if __name__ == "__main__":
     log_files = [f for f in os.listdir("./") if f.endswith("Complex.log")]
     parameters_file = "parameters.txt"
-    sr_time, rootdir = read_parameters(parameters_file)
+    functional, basis, dispersion, solvent, gaussian_module, sr_time, rootdir = read_parameters(parameters_file)
     dependency_script = os.path.join(rootdir, '3_Results.sub')
     launcher(log_files, parameters_file, dependency_script)

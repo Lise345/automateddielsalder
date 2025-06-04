@@ -1,18 +1,44 @@
-#!/bin/sh
-#SBATCH --job-name=IRC_calc
+#!/bin/bash
+#SBATCH --job-name=1_IRC_Calc
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=IRC_calc.logfile
+#SBATCH --output=1_IRC_Calc.err
 #SBATCH --time=01:00:00
 
-#Defining Gaussian Parameters
-cd $VSC_SCRATCH/lise/CHANGETOYOURPATH
+module purge
+module load Python/3.12.3-GCCcore-13.3.0
 
-#Loading modules
-module load sPyRMSD/0.8.0-foss-2023a
-module load openpyxl/3.1.2-GCCcore-12.3.0
+# Define virtual environment path
 
-#Launching calculation
-chmod 777 Automated_IRC_Calculation.py
+
+VENV_DIR="$VSC_SCRATCH/venvs/irc_temp_env"
+
+# Always re-create for now (or use conditional setup)
+rm -rf "$VENV_DIR"
+python3 -m venv "$VENV_DIR"
+
+if [ ! -f "$VENV_DIR/bin/activate" ]; then
+  echo "❌ Venv creation failed"
+  exit 1
+fi
+
+# Use venv pip explicitly
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install spyrmsd openpyxl matplotlib pandas
+
+
+# Activate virtual environment
+source "$VENV_DIR/bin/activate"
+
+# Link or copy sgx16 into this folder
+ln -sf ./Scripts/sgx16 .
+
+# Make sure it's executable (redundant if done already)
+chmod +x sgx16
+
+
+# Ensure script is executable
+chmod 755 Automated_IRC_Calculation.py
+
+# Run the Python script
 python Automated_IRC_Calculation.py
-

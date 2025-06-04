@@ -27,6 +27,29 @@ with open('./parameters.txt', 'r') as parameters:
 
     binfolder = re.search(r'bin (.+)', file_content)
     binfolder = binfolder.group(1)
+    
+    # Extract Gaussian module
+    gaussian_module_match = re.search(r'Gaussian module (.+)', file_content)
+    gaussian_module = gaussian_module_match.group(1).strip()
+
+    
+    # Extract values using regex
+    functional_match = re.search(r'Functional\s+(\S+)', file_content, re.IGNORECASE)
+    dispersion_match = re.search(r'Dispersion\s+(\S+)', file_content, re.IGNORECASE)
+    basis_match = re.search(r'Basis\s+(\S+)', file_content, re.IGNORECASE)
+    solvent_match = re.search(r'DFT solvent\s+(\S+)', file_content, re.IGNORECASE)
+
+    functional = functional_match.group(1)
+    dispersion = dispersion_match.group(1)
+    basis_raw = basis_match.group(1).lower()
+    solvent = solvent_match.group(1).lower()
+
+    # Replace 'cbs' with 'cc-pvdz', otherwise keep the basis as written
+    basis = "cc-pvdz" if basis_raw == "cbs" else basis_raw
+
+
+
+    
 
 CC1_out=CC1_in
 CC1=CC1_in
@@ -57,7 +80,7 @@ def SP_inputgenerator(xyzfile,filename):
         ip.writelines("%nprocshared=4\n")
         ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# opt=(calcfc,ts,noeigentest) freq cc-pvdz empiricaldispersion=gd3 m062x\n")
+        ip.writelines(f"# opt=(calcfc,ts,noeigentest) freq {functional} {basis} {dispersion}\n")
         ip.writelines("\n")
         Title=filename[:-4]+" "+"cc-pVTZ_SP"+"\n"
         ip.writelines(Title)
@@ -68,33 +91,26 @@ def SP_inputgenerator(xyzfile,filename):
             ip.writelines(atom)
         ip.writelines("\n")
         
-        #Writing Link1 part for cc-pVTZ
-        ip.writelines("--Link1--\n")
-        ip.writelines("%nprocshared=4\n")
-        ip.writelines("%mem=32GB\n")
-        ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# m062x cc-pvtz empiricaldispersion=gd3 Geom=Checkpoint \n")
-        ip.writelines("\n")
-        Title=filename[:-4]+" "+"cc-pVQT_SP"+"\n"
-        ip.writelines(Title)
-        ip.writelines("\n")
-        ip.writelines("0 1\n")
-        ip.writelines("\n")
-        
+        # If basis is CBS, write additional Link1 steps for cc-pVTZ and cc-pVQZ
+        if basis.lower() == "cc-pvdz":
+            # Link1 for cc-pVTZ
+            ip.write("--Link1--\n")
+            ip.write("%nprocshared=4\n")
+            ip.write("%mem=32GB\n")
+            ip.write(f"%chk={filename[:-4]}.chk\n")
+            ip.write(f"# {functional} cc-pvtz {dispersion} Geom=Checkpoint\n\n")
+            ip.write(f"{filename[:-4]} cc-pVTZ_SP\n\n")
+            ip.write("0 1\n\n")
 
-	    #Writing Link1 part for cc-pVQZ
-        ip.writelines("--Link1--\n")
-        ip.writelines("%nprocshared=4\n")
-        ip.writelines("%mem=32GB\n")
-        ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# m062x cc-pvqz empiricaldispersion=gd3 Geom=Checkpoint \n")
-        ip.writelines("\n")
-        Title=filename[:-4]+" "+"cc-pVQZ_SP"+"\n"
-        ip.writelines(Title)
-        ip.writelines("\n")
-        ip.writelines("0 1\n")
-        ip.writelines("\n")
-        ip.close()
+            # Link1 for cc-pVQZ
+            ip.write("--Link1--\n")
+            ip.write("%nprocshared=4\n")
+            ip.write("%mem=32GB\n")
+            ip.write(f"%chk={filename[:-4]}.chk\n")
+            ip.write(f"# {functional} cc-pvqz {dispersion} Geom=Checkpoint\n\n")
+            ip.write(f"{filename[:-4]} cc-pVQZ_SP\n\n")
+            ip.write("0 1\n\n")
+
     return print("Input generated for " + filename[:-4])
 
 #-------------Prepare Complex and Product geometries---------------
@@ -159,7 +175,7 @@ def inputgenerator(geometry, filename):
         ip.writelines("%nprocshared=8\n")
         ip.writelines("%mem=32GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# opt=calcfc freq m062x cc-pvdz empiricaldispersion=gd3\n")
+        ip.writelines(f"# opt=calcfc freq {functional} {basis} {dispersion}\n")
         ip.writelines("\n")
         Title=filename[:-4]+" "+"optfreq"+"\n"
         ip.writelines(Title)
@@ -171,32 +187,26 @@ def inputgenerator(geometry, filename):
             ip.writelines(atom_line)
         ip.writelines("\n")
         
-        #Writing Link1 part for cc-pVTZ
-        ip.writelines("--Link1--\n")
-        ip.writelines("%nprocshared=4\n")
-        ip.writelines("%mem=32GB\n")
-        ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# m062x cc-pvtz empiricaldispersion=gd3 Geom=Checkpoint\n")
-        ip.writelines("\n")
-        Title=filename[:-4]+" "+"E_ccpvtz"+"\n"
-        ip.writelines(Title)
-        ip.writelines("\n")
-        ip.writelines("0 1\n")
-        ip.writelines("\n")
-        
-        #Writing Link1 part for cc-pVQZ
-        ip.writelines("--Link1--\n")
-        ip.writelines("%nprocshared=8\n")
-        ip.writelines("%mem=32GB\n")
-        ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# m062x cc-pvqz empiricaldispersion=gd3 Geom=Checkpoint\n")
-        Title=filename[:-4]+" "+"E_ccpvqz"+"\n"
-        ip.writelines("\n")
-        ip.writelines(Title)
-        ip.writelines("\n")
-        ip.writelines("0 1\n")
-        ip.writelines("\n")
-        ip.close()
+        # Only write Link1 steps if this is a CBS calculation (i.e., initial basis = cc-pvdz)
+        if basis.lower() == "cc-pvdz":
+            # Link1 for cc-pVTZ
+            ip.write("--Link1--\n")
+            ip.write("%nprocshared=4\n")
+            ip.write("%mem=32GB\n")
+            ip.write(f"%chk={filename[:-4]}.chk\n")
+            ip.write(f"# {functional} cc-pvtz {dispersion} Geom=Checkpoint\n\n")
+            ip.write(f"{filename[:-4]} E_ccpvtz\n\n")
+            ip.write("0 1\n\n")
+
+            # Link1 for cc-pVQZ
+            ip.write("--Link1--\n")
+            ip.write("%nprocshared=8\n")
+            ip.write("%mem=32GB\n")
+            ip.write(f"%chk={filename[:-4]}.chk\n")
+            ip.write(f"# {functional} cc-pvqz {dispersion} Geom=Checkpoint\n\n")
+            ip.write(f"{filename[:-4]} E_ccpvqz\n\n")
+            ip.write("0 1\n\n")
+            
     return print("Input generated for " + filename[:-4])
 
 def atomwithfloats(atom):
@@ -275,7 +285,7 @@ def launcherstatp(logfilelist):
                         gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
                         gsub.write('#SBATCH --time=40:00:00\n')
                         gsub.write('\n')
-                        gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')
+                        gsub.write(f'module load {gaussian_module}\n')
                         gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')
                         gsub.write('mkdir -p $GAUSS_SCRDIR\n')
                         gsub.write(f'g16 < {filename1} > {filename1[:-4]}.log\n')
@@ -313,7 +323,7 @@ def launcherTS(xyzlist):
             gsub.write('#SBATCH --time=40:00:00\n')
             gsub.write('\n')
             gsub.write('# Loading modules\n')
-            gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')  # Adjust based on the available Gaussian module
+            gsub.write(f'module load {gaussian_module}\n')  # Adjust based on the available Gaussian module
             gsub.write('\n')
             gsub.write('# Setting up Gaussian environment\n')
             gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')  # Temporary directory for Gaussian scratch files

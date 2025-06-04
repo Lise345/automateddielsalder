@@ -1,16 +1,24 @@
 #!/bin/sh
-#SBATCH --job-name=ConfoWoerpelMe
+#SBATCH --job-name=2_StationaryPoints
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=ConfoWoerpelMe.logfile
+#SBATCH --output=2_StationaryPoints.err
 #SBATCH --time=01:00:00
 
-#Defining Gaussian Parameters
-export PATH=/vscmnt/brussel_pixiu_home/_user_brussel/105/vsc10536/bin/:$PATH
+# Define virtual environment path
+VENV_DIR="$VSC_SCRATCH/venvs/irc_temp_env"
 
-#Loading modules
-module load sPyRMSD/0.8.0-foss-2023a
-module load openpyxl/3.1.2-GCCcore-12.3.0
+
+# Activate virtual environment
+source "$VENV_DIR/bin/activate"
+
+# Link or copy sgx16 into this folder
+ln -sf ./Scripts/sgx16 .
+
+# Make sure it's executable (redundant if done already)
+chmod +x sgx16
+
+
 
 #Launching calculation
 chmod 777 Automated_IRC_Extractor.py

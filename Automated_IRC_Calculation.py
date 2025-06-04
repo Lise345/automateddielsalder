@@ -25,6 +25,24 @@ with open('./parameters.txt', 'r') as parameters:
     binfolder = re.search(r'bin (.+)', file_content)
     binfolder = binfolder.group(1)
 
+    # Extract Gaussian module
+    gaussian_module_match = re.search(r'Gaussian module (.+)', file_content)
+    gaussian_module = gaussian_module_match.group(1).strip()
+    
+    # Extract values using regex
+    functional_match = re.search(r'Functional\s+(\S+)', file_content, re.IGNORECASE)
+    dispersion_match = re.search(r'Dispersion\s+(\S+)', file_content, re.IGNORECASE)
+    basis_match = re.search(r'Basis\s+(\S+)', file_content, re.IGNORECASE)
+    solvent_match = re.search(r'DFT solvent\s+(\S+)', file_content, re.IGNORECASE)
+
+    functional = functional_match.group(1)
+    dispersion = dispersion_match.group(1)
+    basis_raw = basis_match.group(1).lower()
+    solvent = solvent_match.group(1).lower()
+
+    # Replace 'cbs' with 'cc-pvdz', otherwise keep the basis as written
+    basis = "cc-pvdz" if basis_raw == "cbs" else basis_raw    
+
 
 
 
@@ -252,7 +270,7 @@ def IRC_inputgenerator(xyzfile, filename, direction):
         ip.writelines("%nprocshared=12\n")
         ip.writelines("%mem=12GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines("# irc=("+direction+",calcfc,maxpoints=100,recalc=3,tight) m062x cc-pvdz empiricaldispersion=gd3\n")
+        ip.writelines(f"# irc=({direction},calcfc,maxpoints=100,recalc=3,tight) {functional} {basis} {dispersion}\n")
         ip.writelines("\n")
         Title=filename+" "+"IRC"+direction+"\n"
         ip.writelines(Title)
@@ -289,7 +307,7 @@ def launcher(uplist,rootdir,binfolder):
             gsub.write('#SBATCH --mem-per-cpu=5GB\n')
             gsub.write('\n')
             gsub.write('# Loading modules\n')
-            gsub.write('module load Gaussian/G16.A.03-intel-2022a\n')  # Adjust based on the available Gaussian module
+            gsub.write(f'module load {gaussian_module}\n')
             gsub.write('\n')
             gsub.write('# Setting up Gaussian environment\n')
             gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')  # Temporary directory for Gaussian scratch files
