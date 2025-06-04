@@ -16,7 +16,7 @@ This repository automates Gaussian-based DFT analysis of reaction mechanisms, co
 | `Automated_Reagents.py`             | *(Optional)* Automatically extracts individual reagent geometries from Complex, submits Gaussian jobs, and schedules `3_Results.sub` once completed. |
 | `1_IRC_calculator.sub`              | **Entry point.** Creates a virtual environment, installs dependencies, and launches `Automated_IRC_Calculation.py`. |
 | `2_StationaryPoints_calculator.sub` | Triggered **automatically** after IRC jobs. Generates and submits SP jobs. |
-| `3_Results-2.sub`                   | Triggered **automatically** after SP jobs. Runs energy analysis. |
+| `3_Results.sub`                   | Triggered **automatically** after SP jobs. Runs energy analysis. |
 | `4_SeparateReagents.sub`            | *(Optional)* Manual launch of `Automated_Reagents.py`. Calculates energies for separate reagents from Complex. Must be followed by manual re-run of `3_Results-2.sub`. |
 | `5_IRandNMR.sub`                    | *(Optional)* Submits IR/NMR frequency jobs for each Product. Can be followed by `Automated_ProcessIRandNMR.py` to generate plots. |
 
@@ -60,7 +60,7 @@ This:
 
 Then:
 - `Automated_IRC_Extractor.py` submits Complex/Product calculations
-- `3_Results-2.sub` analyzes energy and produces Excel/plots
+- `3_Results.sub` analyzes energy and produces Excel/plots
 
 ---
 
