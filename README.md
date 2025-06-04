@@ -45,6 +45,7 @@ Time for Separate Reagent calcs 25
 ### 2. 🚀 Main Workflow
 
 ```bash
+git clone https://github.com/Lise345/automateddielsalder.git
 sbatch 1_IRC_calculator.sub
 ```
 
