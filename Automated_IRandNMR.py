@@ -28,7 +28,7 @@ if not os.path.isfile(sgx16_path):
 
 # === 3. Atomic symbols ===
 atomic_symbols = {i: e for i, e in enumerate(
-    ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+    ["H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
      "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
      "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
      "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
@@ -118,7 +118,7 @@ for file in os.listdir(directory):
             continue
 
         geom = convert_geometry(raw_geom)
-        gjf_path = os.path.join(directory, file.replace(".log", "_IR_NMR.gjf"))
+        gjf_path = file.replace(".log", "_IR_NMR.gjf")
         write_gjf(geom, gjf_path)
         run_gaussian(gjf_path)
 
