@@ -35,8 +35,7 @@ Functional M06-2X
 Dispersion empiricaldispersion=gd3
 Basis cc-pvdz
 DFT solvent gas
-size_molecule = 25
-CC1_in = "1 6"
+CC_M_F_F_exo-TS = "1 6"
 Time for Separate Reagent calcs 25
 ```
 
