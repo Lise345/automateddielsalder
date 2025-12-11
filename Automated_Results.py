@@ -14,7 +14,7 @@ def extract_values(file_path):
     enthalpy = None
     last_scf_done = None
 
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as file:
         lines = file.readlines()
         for i, line in enumerate(lines):
             if 'Error termination via Lnk1e' in line:
@@ -39,7 +39,11 @@ def get_separate_reagent_energy(base_id, directory):
     r1_path = next((f for f in os.listdir(directory) if base_id in f and 'R1' in f), None)
     r2_path = next((f for f in os.listdir(directory) if base_id in f and 'R2' in f), None)
     if r1_path and r2_path:
-        e1 = extract_values(os.path.join(directory, r1_path))
+        try:
+            e1 = extract_values(os.path.join(directory, r1_path))
+        except UnicodeDecodeError as e:
+            print(f"Failed to read file: {r1_path} with error: {e}")
+            return 'Separate reagents not available', 'Separate reagents not available'
         e2 = extract_values(os.path.join(directory, r2_path))
         if all(e is not None for e in e1 + e2):
             extrapolated_r1 = (e1[0] * e1[2] - e1[1]**2) / (e1[0] + e1[2] - 2 * e1[1])
@@ -54,10 +58,20 @@ data_dict = {}
 
 for filename in os.listdir(directory):
     if filename.endswith(('Complex.log', 'Product.log', 'SP.log')):
-        match = re.search(r'(.*(?:endo|exo))', filename)
+
+        # Remove extension
+        name = os.path.splitext(filename)[0]
+
+        # Use everything before the first hyphen
+        base_part = name.split('-', 1)[0]
+
+        # Require "_endo" or "_exo" in the base
+        match = re.search(r'(.*(?:endo|exo))', base_part)
         if not match:
             continue
+
         identification_number = match.group(1)
+
         file_path = os.path.join(directory, filename)
         pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy = extract_values(file_path)
         if all(v is None for v in [pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy]):
@@ -75,7 +89,7 @@ for filename in os.listdir(directory):
 columns = ['ID Number', 'Complex PVDZ Energy', 'Complex PVTZ Energy', 'Complex PVQZ Energy', 'Complex Gibbs Correction', 'Complex Enth Correction',
            'SP PVDZ Energy', 'SP PVTZ Energy', 'SP PVQZ Energy', 'SP Gibbs Correction', 'SP Enth Correction',
            'Product PVDZ Energy', 'Product PVTZ Energy', 'Product PVQZ Energy', 'Product Gibbs Correction', 'Product Enth Correction',
-           'Gibbs of Separate Reagents', 'Enth of Separate Reagents']
+           'Gibbs of Separate Reagents', 'Enthalpy of Separate Reagents']
 
 df = pd.DataFrame(columns=columns)
 
@@ -84,8 +98,9 @@ for key, val in data_dict.items():
     val = val[:16] + [separate_energy] + [enth_separate]
     df.loc[len(df)] = val
 
-df['Gibbs of Separate Reagents'] = df['Gibbs of Separate Reagents'].fillna(10)
-df['Enthalpy of Separate Reagents'] = df['Enth of Separate Reagents'].fillna(10)
+df['Gibbs of Separate Reagents'] = pd.to_numeric(df['Gibbs of Separate Reagents'], errors='coerce').fillna(10)
+df['Enthalpy of Separate Reagents'] = pd.to_numeric(df['Enthalpy of Separate Reagents'], errors='coerce').fillna(10)
+
 
 df['Extrapolated Complex Energy'] = (df['Complex PVDZ Energy'] * df['Complex PVQZ Energy'] - df['Complex PVTZ Energy']**2) / (df['Complex PVDZ Energy'] + df['Complex PVQZ Energy'] - 2 * df['Complex PVTZ Energy'])
 df['Extrapolated TS Energy'] = (df['SP PVDZ Energy'] * df['SP PVQZ Energy'] - df['SP PVTZ Energy']**2) / (df['SP PVDZ Energy'] + df['SP PVQZ Energy'] - 2 * df['SP PVTZ Energy'])
@@ -95,9 +110,9 @@ df['Complex Gibbs'] = 627.5 * (df['Extrapolated Complex Energy'] + df['Complex G
 df['TS Gibbs'] = 627.5 * (df['Extrapolated TS Energy'] + df['SP Gibbs Correction'] - df['Gibbs of Separate Reagents'])
 df['Product Gibbs'] = 627.5 * (df['Extrapolated Product Energy'] + df['Product Gibbs Correction'] - df['Gibbs of Separate Reagents'])
 
-df['Complex Enthalpy'] = 627.5 * (df['Extrapolated Complex Energy'] + df['Complex Enth Correction'] - df['Enth of Separate Reagents'])
-df['TS Enthalpy'] = 627.5 * (df['Extrapolated TS Energy'] + df['SP Enth Correction'] - df['Enth of Separate Reagents'])
-df['Product Enthalpy'] = 627.5 * (df['Extrapolated Product Energy'] + df['Product Enth Correction'] - df['Enth of Separate Reagents'])
+df['Complex Enthalpy'] = 627.5 * (df['Extrapolated Complex Energy'] + df['Complex Enth Correction'] - df['Enthalpy of Separate Reagents'])
+df['TS Enthalpy'] = 627.5 * (df['Extrapolated TS Energy'] + df['SP Enth Correction'] - df['Enthalpy of Separate Reagents'])
+df['Product Enthalpy'] = 627.5 * (df['Extrapolated Product Energy'] + df['Product Enth Correction'] - df['Enthalpy of Separate Reagents'])
 
 df['TS-C Enthalpy'] = df['TS Enthalpy'] - df['Complex Enthalpy']
 df['TS-P Enthalpy'] = df['TS Enthalpy'] - df['Product Enthalpy']
