@@ -18,6 +18,19 @@ import pandas as pd
 
 with open('./parameters.txt', 'r') as parameters:
     file_content = parameters.read()
+    
+    # --- Extract bond atom definitions from parameters.txt ---
+    bond_defs = {}  # maps base name → (atom1, atom2)
+    
+    # Pattern: CC_<name>.log = "a b"
+    bond_pattern = re.compile(r'CC_(.+?)\.log\s*=\s*["\'](\d+)\s+(\d+)["\']')
+    
+    for m in bond_pattern.finditer(file_content):
+        logname = m.group(1).strip()          # e.g., Exo_Kiano-0015_TS
+        a1 = int(m.group(2))
+        a2 = int(m.group(3))
+        bond_defs[logname] = (a1, a2)
+
 
     rootdir = re.search(r'rootdir (.+)', file_content)
     rootdir = rootdir.group(1).strip().strip("'\"")
@@ -37,11 +50,14 @@ with open('./parameters.txt', 'r') as parameters:
 
     functional = functional_match.group(1)
     dispersion = dispersion_match.group(1)
-    basis_raw = basis_match.group(1).lower()
-    solvent = solvent_match.group(1).lower()
 
-    # Replace 'cbs' with 'cc-pvdz', otherwise keep the basis as written
-    basis = "cc-pvdz" if basis_raw == "cbs" else basis_raw    
+    basis_raw = basis_match.group(1).lower()
+    basis = "cc-pvdz" if basis_raw == "cbs" else basis_raw   
+
+    # Solvent: only include if not 'none'
+    solvent_raw = solvent_match.group(1).strip().lower()
+    solvent = "" if solvent_raw == "none" else solvent_raw
+
 
 
 
@@ -68,7 +84,7 @@ def checkfrequency(filename):
         for frequency in frequencies:
             if frequency<0:
                 nimag=nimag+1
-        if nimag != 1:
+        if nimag < 1:
             print("incorrect number of imag freq for "+filename)
             if nimag>1:
                 incorrectTS.append(filename)
@@ -81,7 +97,7 @@ def checkfrequency(filename):
 
 listfiles=[]
 for file in os.listdir():
-    if "TS.log" in file:
+    if "TS.log" and "Exo" in file:
         listfiles.append(file)
             
 incorrectTS= []
@@ -263,14 +279,17 @@ print("Number of IRC calculations: "+str(len(IRClist)))
 
 #IRC calculation runner
 
-def IRC_inputgenerator(xyzfile, filename, direction):
+def IRC_inputgenerator(xyzfile, filename, direction, atom1, atom2):
     with open(xyzfile, 'r') as file:
         lines = file.readlines()
     with open(filename, 'x') as ip:
         ip.writelines("%nprocshared=12\n")
         ip.writelines("%mem=12GB\n")
         ip.writelines("%chk="+filename[:-4]+".chk"+"\n")
-        ip.writelines(f"# irc=({direction},calcfc,maxpoints=100,recalc=3,tight) {functional} {basis} {dispersion}\n")
+        ip.writelines(
+            f"# irc=({direction},phase=({atom1},{atom2}),calcfc,maxpoints=100,"
+            f"recalc=3,Tight) {functional} {basis} {dispersion} {solvent}\n"
+        )
         ip.writelines("\n")
         Title=filename+" "+"IRC"+direction+"\n"
         ip.writelines(Title)
@@ -283,21 +302,37 @@ def IRC_inputgenerator(xyzfile, filename, direction):
         ip.close()
     return print("IRC input generated for " + xyzfile[:-4])
         
-def launcher(uplist,rootdir,binfolder):
+def launcher(uplist, rootdir, binfolder):
     inp_file_job_ids = []
-    
-    n = 1
-    
+    n = 0  # counter for submitted jobs
+
     for xyzfile in uplist:
-        reduced_filename=xyzfile[:-4]+"_IRC"
-        filename_forward=xyzfile[:-4]+"_IRCforward"+".gjf"
-        filename_reverse=xyzfile[:-4]+"_IRCreverse"+".gjf"
-        output_forward=xyzfile[:-4]+"_IRCforward"+".log"
-        output_reverse=xyzfile[:-4]+"_IRCreverse"+".log"
-        IRC_inputgenerator(xyzfile,filename_forward,"forward")
-        IRC_inputgenerator(xyzfile,filename_reverse,"reverse")
-        
-        with open(reduced_filename+".sub","w") as gsub:
+        # Strip .xyz and any leading underscore so it matches CC_Exo_Kiano-0187_TS
+        name_base = xyzfile[:-4].lstrip("_")   # e.g., Exo_Kiano-0187_TS
+
+        # Check bond definition
+        if name_base not in bond_defs:
+            raise ValueError(
+                "Please specify the atoms participating in the bond formation "
+                "in the parameters.txt file\n"
+                f"Missing entry for: {name_base}"
+            )
+
+        atom1, atom2 = bond_defs[name_base]
+
+        # File name bases
+        reduced_filename = name_base + "_IRC"               # for .sub and job-name
+        filename_forward = name_base + "_IRCforward.gjf"
+        filename_reverse = name_base + "_IRCreverse.gjf"
+        output_forward = name_base + "_IRCforward.log"
+        output_reverse = name_base + "_IRCreverse.log"
+
+        # Generate the IRC input files
+        IRC_inputgenerator(xyzfile, filename_forward, "forward", atom1, atom2)
+        IRC_inputgenerator(xyzfile, filename_reverse, "reverse", atom1, atom2)
+
+        # Create the submission script
+        with open(reduced_filename + ".sub", "w") as gsub:
             gsub.write('#!/bin/sh\n')
             gsub.write(f'#SBATCH --job-name={reduced_filename}\n')
             gsub.write('#SBATCH --cpus-per-task=12\n')
@@ -310,21 +345,19 @@ def launcher(uplist,rootdir,binfolder):
             gsub.write(f'module load {gaussian_module}\n')
             gsub.write('\n')
             gsub.write('# Setting up Gaussian environment\n')
-            gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')  # Temporary directory for Gaussian scratch files
+            gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')
             gsub.write('mkdir -p $GAUSS_SCRDIR\n')
             gsub.write('#Launching calculation\n')
-            gsub.write('export PATH={binfolder}:$PATH\n')
-            gsub.write('dos2unix {filename_forward}\n')
-            gsub.write('dos2unix {filename_reverse}\n')
+            gsub.write(f'export PATH={binfolder}:$PATH\n')
+            gsub.write(f'dos2unix {filename_forward}\n')
+            gsub.write(f'dos2unix {filename_reverse}\n')
             gsub.write(f'g16 < {filename_forward} > {output_forward} &\n')
             gsub.write(f'g16 < {filename_reverse} > {output_reverse} &\n')
-            gsub.write(f'wait')
-            gsub.write('\n')
+            gsub.write('wait\n')
 
-    
+        # Submit the job
         sbatch_command = f"sbatch {reduced_filename}.sub"
-        
-        
+
         result = subprocess.run(
             sbatch_command,
             shell=True,
@@ -332,23 +365,24 @@ def launcher(uplist,rootdir,binfolder):
             stderr=subprocess.PIPE,
             universal_newlines=True
         )
-        
+
         if result.returncode == 0:
-        # Extract the job ID from the sbatch output
+            # Extract the job ID from the sbatch output
             job_id_match = re.search(r'(\d+)', result.stdout)
             if job_id_match:
                 job_id = job_id_match.group(1)
-                inp_file_job_ids.append(job_id)  # Collect job IDs for inp_file jobs
-                n += 1  # Increment the counter
-                print(f"Submitted job {n}")
+                inp_file_job_ids.append(job_id)  # Collect job IDs
+                n += 1
+                print(f"Submitted job {n}: {reduced_filename} (ID {job_id})")
             else:
                 print(f"Failed to extract job ID for {sbatch_command}. Output: {result.stdout}")
         else:
             print(f"Failed to submit job for {sbatch_command}: {result.stderr}")
-    
+
+    # Dependency job for stationary points
     if inp_file_job_ids:
         dependency_str = ":".join(inp_file_job_ids)
-        extractor_script = os.path.join(rootdir,'2_StationaryPoints_calculator.sub')
+        extractor_script = os.path.join(rootdir, '2_StationaryPoints_calculator.sub')
 
         if not os.path.exists(extractor_script):
             raise FileNotFoundError(f"Extractor script not found: {extractor_script}")
@@ -359,19 +393,23 @@ def launcher(uplist,rootdir,binfolder):
             extractor_script
         ]
 
-        result = subprocess.run(dependency_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        result = subprocess.run(
+            dependency_command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
         if result.returncode == 0:
             print(f"Extractor job submitted successfully: {result.stdout}")
         else:
             print(f"Failed to submit extractor job: {result.stderr}")
     else:
         print("No jobs were submitted, skipping dependency job submission.")
-    
+
 
 launcher(IRClist,rootdir,binfolder)
 
 
     
-
 
 
