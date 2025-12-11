@@ -22,7 +22,7 @@ venv_path = os.environ.get("VIRTUAL_ENV")
 if not venv_path:
     raise EnvironmentError("❌ VIRTUAL_ENV is not set. Please activate your virtual environment.")
 
-sgx16_path = os.path.join("Scripts", "sgx16")
+sgx16_path = os.path.join("../Scripts", "sgx16")
 if not os.path.isfile(sgx16_path):
     raise FileNotFoundError(f"❌ sgx16 not found at: {sgx16_path}")
 
@@ -77,19 +77,32 @@ def convert_geometry(raw_geometry):
 # === 5. Write .gjf file ===
 def write_gjf(geometry, filename):
     name = os.path.splitext(os.path.basename(filename))[0]
-    out_file = f"{name}.log"
-    
+
+    # --- Build route line dynamically ---
+    route_parts = ["nmr=giao", "freq", f"{basis}"]
+
+    # Add solvent only if not 'none'
+    if solvent.lower() != "none":
+        route_parts.append(solvent)
+
+    # Add dispersion only if not 'none'
+    if dispersion != "none":
+        route_parts.append(dispersion)
+
+    route_line = "# " + " ".join(route_parts) + "\n"
+
     with open(filename, 'w') as f:
         f.write("%nprocshared=8\n")
         f.write("%mem=32GB\n")
         f.write(f"%chk={filename[:-4]}.chk\n")
-        f.write(f"# nmr=giao freq {functional} {basis} {dispersion} output={out_file}\n\n")
+        f.write(route_line +  "b3lyp iop(3/76=1000001189,3/77=0961409999,3/78=0000109999) \n\n")
         f.write(f"{filename[:-4]} IR and NMR calculation\n\n")
         f.write("0 1\n")
         for atom in geometry:
             f.write(f"{atom[0]} {atom[1]} {atom[2]} {atom[3]}\n")
         f.write("\n")
     print(f"✅ Input file written: {filename}")
+
 
 # === 6. Run Gaussian using sgx16 ===
 def run_gaussian(gjf_file):
@@ -108,7 +121,7 @@ def run_gaussian(gjf_file):
 
 # === 7. Main loop ===
 for file in os.listdir(directory):
-    if file.endswith("Product.log"):
+    if file.lower().endswith(("product.log", "r1.log", "r2.log")):
         path = os.path.join(directory, file)
         print(f"🔍 Processing {file}", flush=True)
 
@@ -121,4 +134,3 @@ for file in os.listdir(directory):
         gjf_path = file.replace(".log", "_IR_NMR.gjf")
         write_gjf(geom, gjf_path)
         run_gaussian(gjf_path)
-
