@@ -308,7 +308,7 @@ def launcher(uplist, rootdir, binfolder):
 
     for xyzfile in uplist:
         # Strip .xyz and any leading underscore so it matches CC_Exo_Kiano-0187_TS
-        name_base = xyzfile[:-4].lstrip("_")   # e.g., Exo_Kiano-0187_TS
+        name_base = xyzfile[:-4].lstrip("-")   # e.g., Exo_Kiano-0187_TS
 
         # Check bond definition
         if name_base not in bond_defs:
