@@ -23,7 +23,7 @@ with open('./parameters.txt', 'r') as parameters:
     bond_defs = {}  # maps base name → (atom1, atom2)
     
     # Pattern: CC_<name>.log = "a b"
-    bond_pattern = re.compile(r'CC_(.+?)\.log\s*=\s*["\'](\d+)\s+(\d+)["\']')
+    bond_pattern = re.compile(r'^CC_(.+?)(?:\.log)?\s*=\s*["\']\s*(\d+)\s+(\d+)\s*["\']\s*$',re.MULTILINE)
     
     for m in bond_pattern.finditer(file_content):
         logname = m.group(1).strip()          # e.g., Exo_Kiano-0015_TS
