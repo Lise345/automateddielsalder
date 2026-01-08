@@ -97,7 +97,7 @@ def checkfrequency(filename):
 
 listfiles=[]
 for file in os.listdir():
-    if "TS.log" and "Exo" in file:
+    if "TS.log" in file:
         listfiles.append(file)
             
 incorrectTS= []
