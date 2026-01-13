@@ -56,26 +56,27 @@ def get_separate_reagent_energy(base_id, directory):
 directory = './'
 data_dict = {}
 
+matched = 0
+parsed = 0
+skipped_all_none = 0
+
 for filename in os.listdir(directory):
     if filename.endswith(('Complex.log', 'Product.log', 'SP.log')):
+        matched += 1
 
-        # Remove extension
         name = os.path.splitext(filename)[0]
-
-        # Use everything before the first hyphen
-        base_part = name.split('-', 1)[0]
-
-        # Require "_endo" or "_exo" in the base
-        match = re.search(r'(.*(?:endo|exo))', base_part)
-        if not match:
-            continue
-
-        identification_number = match.group(1)
+        identification_number = name.split('-TS', 1)[0]
 
         file_path = os.path.join(directory, filename)
-        pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy = extract_values(file_path)
-        if all(v is None for v in [pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy]):
+        vals = extract_values(file_path)
+        pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy = vals
+
+        if all(v is None for v in vals):
+            skipped_all_none += 1
             continue
+
+        parsed += 1
+        
         if identification_number not in data_dict:
             data_dict[identification_number] = [None] * 16
 
@@ -85,6 +86,10 @@ for filename in os.listdir(directory):
             data_dict[identification_number][6:11] = [pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy]
         elif filename.endswith('Product.log'):
             data_dict[identification_number][11:16] = [pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy]
+            
+print("matched log files:", matched)
+print("parsed (at least one value found):", parsed)
+print("skipped (all None):", skipped_all_none)
 
 columns = ['ID Number', 'Complex PVDZ Energy', 'Complex PVTZ Energy', 'Complex PVQZ Energy', 'Complex Gibbs Correction', 'Complex Enth Correction',
            'SP PVDZ Energy', 'SP PVTZ Energy', 'SP PVQZ Energy', 'SP Gibbs Correction', 'SP Enth Correction',
