@@ -284,6 +284,7 @@ def launcherstatp(logfilelist):
                         gsub.write('#SBATCH --ntasks=12\n')
                         gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
                         gsub.write('#SBATCH --time=40:00:00\n')
+                        gsub.write('#SBATCH --mem=36GB\n')
                         gsub.write('\n')
                         gsub.write(f'module load {gaussian_module}\n')
                         gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')
@@ -321,6 +322,7 @@ def launcherTS(xyzlist):
             gsub.write('#SBATCH --ntasks=12\n')
             gsub.write(f'#SBATCH --output='+filename[:-4]+'.logfile\n')
             gsub.write('#SBATCH --time=40:00:00\n')
+            gsub.write('#SBATCH --mem=36GB\n')
             gsub.write('\n')
             gsub.write('# Loading modules\n')
             gsub.write(f'module load {gaussian_module}\n')  # Adjust based on the available Gaussian module
