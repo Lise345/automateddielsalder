@@ -122,7 +122,7 @@ def extract_coordinates_from_log(file_path):
 
 def write_gaussian_input(file_name, molecule, suffix, parameter_file="parameters.txt"):
     """Writes a Gaussian input file based on parameters.txt."""
-    functional, basis, dispersion, solvent = read_dft_parameters(parameter_file)
+    functional, basis, dispersion, solvent, gaussian_module, sr_time, rootdir = read_parameters(parameters_file)
     output_path = f"{file_name}_{suffix}.gjf"
 
     with open(output_path, 'w') as output_file:
@@ -188,7 +188,7 @@ g16 -p=$SLURM_CPUS_PER_TASK -m=80GB < {input_file} > {output_file}
 def launcher(log_files, parameters_file, dependency_script):
     MAX_JOBS = 100
     """Generates Gaussian input files, submission scripts, and launches jobs."""
-    sr_time, rootdir, gaussian_module = read_parameters(parameters_file)
+    functional, basis, dispersion, solvent, gaussian_module, sr_time, rootdir = read_parameters(parameters_file)
     job_ids = []
 
     n=0
