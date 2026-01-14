@@ -5,19 +5,39 @@
 #SBATCH --output=5_IRandNMR.err
 #SBATCH --time=00:20:00
 
+module load Python/3.12.3-GCCcore-13.3.0
+
+cp ./*Product.log ./
+cp ../parameters.txt ./
+
+
+# Define virtual environment path
+
+VENV_DIR="$VSC_SCRATCH/venvs/irc_temp_env"
+
+# Always re-create for now (or use conditional setup)
+rm -rf "$VENV_DIR"
+python3 -m venv "$VENV_DIR"
+
+if [ ! -f "$VENV_DIR/bin/activate" ]; then
+  echo "❌ Venv creation failed"
+  exit 1
+fi
+
+# Use venv pip explicitly
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install spyrmsd openpyxl matplotlib pandas
 
 # Activate it
 source $VSC_SCRATCH/venvs/irc_temp_env/bin/activate
 
-cp ../*Product.log ./
-cp ../parameters.txt ./
-
-
 # Link or copy sgx16 into this folder
-ln -sf ./Scripts/sgx16 .
+#ln -sf ./Scripts/sgx16 .
 
 # Make sure it's executable (redundant if done already)
 chmod +x sgx16
+dos2unix sgx16
+
 
 #Launching calculation
 chmod 777 Automated_IRandNMR.py
