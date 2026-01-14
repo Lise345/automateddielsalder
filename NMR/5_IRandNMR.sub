@@ -9,6 +9,9 @@
 # Activate it
 source $VSC_SCRATCH/venvs/irc_temp_env/bin/activate
 
+cp ../*Product.log ./
+cp ../parameters.txt ./
+
 
 # Link or copy sgx16 into this folder
 ln -sf ./Scripts/sgx16 .
