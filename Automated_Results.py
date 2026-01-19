@@ -36,22 +36,38 @@ def extract_values(file_path):
     return pvdz_energy, pvtz_energy, pvqz_energy, gibbs_free_energy, enthalpy
 
 def get_separate_reagent_energy(base_id, directory):
-    r1_path = next((f for f in os.listdir(directory) if base_id in f and 'R1' in f), None)
-    r2_path = next((f for f in os.listdir(directory) if base_id in f and 'R2' in f), None)
-    if r1_path and r2_path:
-        try:
-            e1 = extract_values(os.path.join(directory, r1_path))
-        except UnicodeDecodeError as e:
-            print(f"Failed to read file: {r1_path} with error: {e}")
-            return 'Separate reagents not available', 'Separate reagents not available'
-        e2 = extract_values(os.path.join(directory, r2_path))
-        if all(e is not None for e in e1 + e2):
-            extrapolated_r1 = (e1[0] * e1[2] - e1[1]**2) / (e1[0] + e1[2] - 2 * e1[1])
-            extrapolated_r2 = (e2[0] * e2[2] - e2[1]**2) / (e2[0] + e2[2] - 2 * e2[1])
-            gibss_separate_energies = extrapolated_r1 + extrapolated_r2 + e1[3] + e2[3]
-            enth_separate_energies = extrapolated_r1 + extrapolated_r2 + e1[4] + e2[4]
-            return gibss_separate_energies, enth_separate_energies
-    return 'Separate reagents not available', 'Separate reagents not available'
+    files = os.listdir(directory)
+
+    r1_candidates = [f for f in files if base_id in f and 'R1' in f and f.endswith('.log')]
+    r2_candidates = [f for f in files if base_id in f and 'R2' in f and f.endswith('.log')]
+
+    print(f"[DEBUG] {base_id} R1 candidates:", r1_candidates)
+    print(f"[DEBUG] {base_id} R2 candidates:", r2_candidates)
+
+    r1_path = r1_candidates[0] if r1_candidates else None
+    r2_path = r2_candidates[0] if r2_candidates else None
+
+    if not (r1_path and r2_path):
+        print(f"[DEBUG] {base_id} missing R1 or R2 selection.")
+        return 'Separate reagents not available', 'Separate reagents not available'
+
+    e1 = extract_values(os.path.join(directory, r1_path))
+    e2 = extract_values(os.path.join(directory, r2_path))
+
+    print(f"[DEBUG] {base_id} e1:", e1)
+    print(f"[DEBUG] {base_id} e2:", e2)
+
+    if not all(e is not None for e in e1 + e2):
+        print(f"[DEBUG] {base_id} extraction has None(s).")
+        return 'Separate reagents not available', 'Separate reagents not available'
+
+    extrapolated_r1 = (e1[0] * e1[2] - e1[1]**2) / (e1[0] + e1[2] - 2 * e1[1])
+    extrapolated_r2 = (e2[0] * e2[2] - e2[1]**2) / (e2[0] + e2[2] - 2 * e2[1])
+
+    gibbs_sep = extrapolated_r1 + extrapolated_r2 + e1[3] + e2[3]
+    enth_sep  = extrapolated_r1 + extrapolated_r2 + e1[4] + e2[4]
+    return gibbs_sep, enth_sep
+
 
 directory = './'
 data_dict = {}
