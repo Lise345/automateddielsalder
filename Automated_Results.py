@@ -161,38 +161,16 @@ os.makedirs("plots", exist_ok=True)
 
 from matplotlib.lines import Line2D
 
-for base_id in df['BaseID'].dropna().unique():
-    subset = df[df['BaseID'] == base_id]
-    for energy_type in ['Gibbs', 'Enthalpy']:
-        plt.figure(figsize=(8, 6))
-        used_variants = set()
+print("Columns containing Gibbs:", [c for c in df.columns if "Gibbs" in c])
+print("Columns containing Enthalpy:", [c for c in df.columns if "Enthalpy" in c])
+print("BaseID non-NaN count:", df["BaseID"].notna().sum() if "BaseID" in df.columns else "NO BaseID COL")
 
-        for _, row in subset.iterrows():
-            if isinstance(row[f'{energy_type} of Separate Reagents'], str):
-                continue
-            y_vals = [row[f'Complex {energy_type}'], row[f'TS {energy_type}'], row[f'Product {energy_type}']]
-            x_vals = [1, 2, 3]
-            variant = row['Variant']
-            color = color_map.get(variant, 'gray')
-            bar_width = 0.2
+# Check if the expected columns exist
+for energy_type in ["Gibbs", "Enthalpy"]:
+    needed = [f"Complex {energy_type}", f"TS {energy_type}", f"Product {energy_type}"]
+    print("Missing for", energy_type, ":", [c for c in needed if c not in df.columns])
 
-            # Draw horizontal bars for each point
-            for x, y in zip(x_vals, y_vals):
-                plt.hlines(y, x - bar_width, x + bar_width, color=color, linewidth=3)
 
-            # Add dummy line to legend only once per variant
-            if variant not in used_variants:
-                plt.plot([], [], color=color, linewidth=3, label=variant)
-                used_variants.add(variant)
-
-        plt.xticks([1, 2, 3], ['Complex', 'TS', 'Product'], fontsize=12)
-        plt.title(f"Reaction Path ({energy_type}): {base_id}", fontsize=14)
-        plt.ylabel(f'{energy_type} (kcal/mol)', fontsize=12)
-        plt.legend(title='Variant', fontsize=11)
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.tight_layout()
-        plt.savefig(f'plots/{base_id}_ReactionPath_{energy_type}.png')
-        plt.close()
 
 
 # Bar plots
@@ -209,6 +187,67 @@ for energy_type in ['', ' Enthalpy']:
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.savefig(f'plots/{energy_type.strip()}_BarPlot.png')
+    
+for energy_type in ['Gibbs', 'Enthalpy']:
+    plt.figure(figsize=(10, 7))
+    used_variants = set()
+
+    # Use unique BaseIDs to define deterministic offsets (so lines don't sit on top of each other)
+    base_ids = [b for b in df['ID Number'].dropna().unique()]
+    n = len(base_ids)
+    if n == 0:
+        continue
+
+    # Spread offsets symmetrically around 0; scale keeps things visually readable
+    offsets = np.linspace(-0.18, 0.18, n) if n > 1 else [0.0]
+    offset_map = {b: offsets[i] for i, b in enumerate(base_ids)}
+
+    bar_width = 0.18  # half-width of the horizontal "state" bars
+
+    # Loop through all rows (all reactions)
+    for _, row in df.iterrows():
+        base_id = row.get('ID Number', None)
+        if pd.isna(base_id):
+            continue
+
+        # Skip if separate reagents field is a string (your existing guard)
+        if isinstance(row.get(f'{energy_type} of Separate Reagents', None), str):
+            continue
+
+        # Make sure the three energies exist and are numeric
+        y_vals = [row.get(f'Complex {energy_type}', None),
+                  row.get(f'TS {energy_type}', None),
+                  row.get(f'Product {energy_type}', None)]
+        if any(v is None or (isinstance(v, float) and np.isnan(v)) for v in y_vals):
+            continue
+
+        # x positions with BaseID-specific offset
+        x_base = np.array([1.0, 2.0, 3.0])
+        x_vals = x_base + offset_map.get(base_id, 0.0)
+
+        variant = row.get('Variant', 'Unknown')
+        color = color_map.get(variant, 'gray')
+
+        # 1) dotted connector line (requested)
+        plt.plot(x_vals, y_vals, linestyle=':', linewidth=1.5, color=color, alpha=0.85)
+
+        # 2) horizontal bars for Complex/TS/Product
+        for x, y in zip(x_vals, y_vals):
+            plt.hlines(y, x - bar_width, x + bar_width, color=color, linewidth=3, alpha=0.95)
+
+        # Legend entry once per variant
+        if variant not in used_variants:
+            plt.plot([], [], color=color, linewidth=3, label=variant)
+            used_variants.add(variant)
+
+    plt.xticks([1, 2, 3], ['Complex', 'TS', 'Product'], fontsize=12)
+    plt.title(f"Reaction Path ({energy_type}) — All Reactions", fontsize=14)
+    plt.ylabel(f'{energy_type} (kcal/mol)', fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(title='Variant', fontsize=10)
+    plt.tight_layout()
+    plt.savefig(f'plots/ALL_ReactionPath_{energy_type}.png', dpi=300)
+    plt.close()
 
 # Create Results subset
 results_gibbs = ['ID Number', 'Complex Gibbs', 'TS Gibbs', 'Product Gibbs', 'TS-C', 'TS-P', 'P-C']
