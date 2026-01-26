@@ -11,16 +11,23 @@ import math
 
 with open('./parameters.txt', 'r') as parameters:
     file_content = parameters.read()
+    
+    # --- Extract bond atom definitions from parameters.txt ---
+    bond_defs = {}  # maps base name → (atom1, atom2)
 
     # Extract the size_molecule value
     size_molecule_match = re.search(r'size_molecule\s*=\s*(\d+)', file_content)
     if size_molecule_match:
         size_molecule = int(size_molecule_match.group(1))
 
-    # Extract the CC1_in value
-    CC1_in_match = re.search(r'CC1_in\s*=\s*"(.*?)"', file_content)
-    if CC1_in_match:
-        CC1_in = list(map(int, CC1_in_match.group(1).split()))
+    # Pattern: CC_<name>.log = "a b"
+    bond_pattern = re.compile(r'^CC_(.+?)(?:\.log)?\s*=\s*["\']\s*(\d+)\s+(\d+)\s*["\']\s*$',re.MULTILINE)
+    
+    for m in bond_pattern.finditer(file_content):
+        logname = m.group(1).strip()          # e.g., Exo_Kiano-0015_TS
+        a1 = int(m.group(2))
+        a2 = int(m.group(3))
+        bond_defs[logname] = (a1, a2)
 
     rootdir = re.search(r'rootdir (.+)', file_content)
     rootdir = rootdir.group(1).strip().strip("'\"")
@@ -48,11 +55,6 @@ with open('./parameters.txt', 'r') as parameters:
     basis = "cc-pvdz" if basis_raw == "cbs" else basis_raw
 
 
-
-    
-
-CC1_out=CC1_in
-CC1=CC1_in
 
 #-------------Prepare TS geometries--------------
 
@@ -241,7 +243,10 @@ def launcherstatp(logfilelist):
     print(logfilelist)
     for i, logfile1 in enumerate(logfilelist):
     # Extract the base name of the first logfile
+        base_name = re.sub(r'(_IRCreverse|_IRCforward)\.log$', '', logfile1)
         base_name1 = re.sub(r'(reverse|forward)\.log$', '', logfile1)
+        CC1 = bond_defs[base_name]
+        print("CC1 atoms for", logfile1, ":", CC1)
     
         for j, logfile2 in enumerate(logfilelist):
             if i < j:  # Ensure each pair is processed only once
@@ -269,12 +274,13 @@ def launcherstatp(logfilelist):
                     if distance1_CC1 > distance2_CC1:
                         filename1 = logfile1[:-4] + "_Complex.gjf"
                         filename2 = logfile2[:-4] + "_Product.gjf"
+                        inputgenerator(updated_geometry1, filename1)
+                        inputgenerator(updated_geometry2, filename2)
                     else:
                         filename1 = logfile2[:-4] + "_Complex.gjf"
                         filename2 = logfile1[:-4] + "_Product.gjf"
-                
-                    inputgenerator(updated_geometry1, filename1)
-                    inputgenerator(updated_geometry2, filename2)
+                        inputgenerator(updated_geometry1, filename2)
+                        inputgenerator(updated_geometry2, filename1)
                 
                 # Create submission script
                     reduced_filename = logfile1[:-4] + "_optE"
@@ -284,7 +290,7 @@ def launcherstatp(logfilelist):
                         gsub.write('#SBATCH --ntasks=12\n')
                         gsub.write(f'#SBATCH --output={reduced_filename}.logfile\n')
                         gsub.write('#SBATCH --time=40:00:00\n')
-                        gsub.write('#SBATCH --mem=36GB\n')
+                        gsub.write('#SBATCH --mem=64GB\n')
                         gsub.write('\n')
                         gsub.write(f'module load {gaussian_module}\n')
                         gsub.write('export GAUSS_SCRDIR=$TMPDIR\n')
